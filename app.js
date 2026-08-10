@@ -5,10 +5,10 @@
    ========================================================================== */
 
 /* ==========================================================================
-   🔑 SUPABASE CONFIGURATION (REEMPLAZA ESTAS 2 LLAVES CON LAS DE TU PANEL)
+   🔑 SUPABASE CONFIGURATION - SALA ONLINE DE ALTA CAPACIDAD (500 ALUMNOS)
    ========================================================================== */
-const SUPABASE_URL = "TU_SUPABASE_URL_AQUI";
-const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
+const SUPABASE_URL = "https://raqkwhuocjbqkhlyvbck.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhcWt3aHVvY2picWtobHl2YmNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzE3NjgsImV4cCI6MjEwMTkwNzc2OH0.WfLSTllqjNSxTY5jyx0Y3ozmvkCx_iSg-3zvkfOQ4b0";
 
 let supabaseClient = null;
 let realtimeChannel = null;
@@ -231,7 +231,7 @@ function launchConfetti() {
    SUPABASE REALTIME SYNCHRONIZATION ENGINE
    ========================================================================== */
 function initSupabaseRealtime() {
-  if (typeof supabase !== 'undefined' && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI" && SUPABASE_ANON_KEY !== "TU_SUPABASE_ANON_KEY_AQUI") {
+  if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const roomChannelName = `timeline_room_${gameState.roomCode}`;
