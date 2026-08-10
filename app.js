@@ -281,7 +281,7 @@ function broadcastStudentJoined(studentData) {
 }
 
 function handleIncomingStudentJoin(studentData) {
-  const exists = gameState.joinedStudents.some(s => s.name === studentData.name && s.teamId === studentData.teamId);
+  const exists = gameState.joinedStudents.some(s => s.name === studentData.name);
   if (!exists) {
     gameState.joinedStudents.push(studentData);
     renderTeacherOnlineLobbyGrid();
@@ -524,7 +524,17 @@ function handleStudentJoinSubmit(e) {
   gameState.roomCode = code;
   gameState.gameMode = "online";
 
-  const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
+  // ASIGNACIÓN EQUITATIVA DE GRUPOS (EQUIPO CON MENOS INTEGRANTES)
+  let teamCounts = Array(gameState.numTeams).fill(0);
+  gameState.joinedStudents.forEach(s => {
+    if (s.teamId < gameState.numTeams) teamCounts[s.teamId]++;
+  });
+  let minCount = Math.min(...teamCounts);
+  let candidateTeams = [];
+  for (let t = 0; t < gameState.numTeams; t++) {
+    if (teamCounts[t] === minCount) candidateTeams.push(t);
+  }
+  const assignedTeamIndex = candidateTeams[0];
   gameState.userTeamId = assignedTeamIndex;
   
   const studentPayload = { name, teamId: assignedTeamIndex, roomCode: code };
@@ -722,15 +732,27 @@ function updateHud() {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
   }
 
+  // BADGE DE IDENTIDAD DE CADA DISPOSITIVO
+  const myIdentityBadge = document.getElementById("hudMyIdentityBadge");
+  if (myIdentityBadge) {
+    if (gameState.playerName) {
+      myIdentityBadge.style.display = "inline-flex";
+      myIdentityBadge.textContent = `👤 Tú: ${gameState.playerName} (${ALL_TEAMS[gameState.userTeamId].name})`;
+    } else {
+      myIdentityBadge.style.display = "none";
+    }
+  }
+
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
+  // SELECCIÓN DETERMINÍSTICA E IDENTICA DEL JUGADOR EN TURNO EN TODOS LOS DISPOSITIVOS
   const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
   let activePlayerName = "";
   
   if (activeTeamMembers.length > 0) {
-    const randomMember = activeTeamMembers[Math.floor(Math.random() * activeTeamMembers.length)];
-    activePlayerName = randomMember.name;
+    const repIndex = (gameState.totalTurnsPlayed || 0) % activeTeamMembers.length;
+    activePlayerName = activeTeamMembers[repIndex].name;
   } else {
     activePlayerName = `Representante ${currentTeam.name}`;
   }
@@ -738,6 +760,32 @@ function updateHud() {
   const playerValEl = document.getElementById("hudActiveTurnPlayer");
   if (playerValEl) playerValEl.textContent = activePlayerName;
   
+  // COMPROBACÓN DE SI ES TU TURNO EXACTO DE JUGAR
+  const myTurnAlertBanner = document.getElementById("myTurnAlertBanner");
+  const playerBox = document.getElementById("hudCardPlayerBox");
+  const subtextEl = document.getElementById("hudTurnPlayerSubtext");
+
+  const isMyTurn = (gameState.playerName && gameState.playerName === activePlayerName);
+
+  if (isMyTurn) {
+    if (myTurnAlertBanner) {
+      myTurnAlertBanner.style.display = "block";
+      myTurnAlertBanner.textContent = `🌟 ¡ATENCIÓN ${gameState.playerName.toUpperCase()}! ES TU TURNO DE COLOCAR LA CARTA DE TU EQUIPO 🌟`;
+    }
+    if (playerBox) {
+      playerBox.style.boxShadow = "0 0 20px rgba(255, 0, 85, 0.8)";
+      playerBox.style.borderLeftColor = "var(--color-neon-pink)";
+    }
+    if (subtextEl) subtextEl.textContent = "👉 ¡TE TOCA A TI JUGAR ESTE TURNO!";
+  } else {
+    if (myTurnAlertBanner) myTurnAlertBanner.style.display = "none";
+    if (playerBox) {
+      playerBox.style.boxShadow = "none";
+      playerBox.style.borderLeftColor = "var(--color-neon-cyan)";
+    }
+    if (subtextEl) subtextEl.textContent = `⏳ Esperando movimiento de ${activePlayerName}`;
+  }
+
   const currentHand = gameState.teamHands[gameState.userTeamId] || [];
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
 }

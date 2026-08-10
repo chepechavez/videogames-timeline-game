@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=4.0 -->
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=5.0 -->
+  <link rel="stylesheet" href="styles.css?v=5.0">
 </head>
 <body>
 
@@ -37,6 +37,11 @@
     <!-- Interface Switcher Tabs & Team Roster Button -->
     <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
       
+      <!-- BADGE DE IDENTIDAD DEL JUGADOR ACTUAL -->
+      <div id="hudMyIdentityBadge" style="background: rgba(0, 243, 255, 0.1); border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: bold; display: none;">
+        👤 Tú: Estudiante
+      </div>
+
       <!-- BOTÓN PARA SALIR A LA PORTADA / ELEGIR ROL -->
       <button class="btn-secondary" id="btnExitToCover" style="padding: 0.5rem 0.9rem; border-color: rgba(255,255,255,0.25); color: var(--color-text-main);" onclick="openRoleSelectionModal()" title="Salir a la portada inicial para cambiar de rol">
         🏠 Salir a Portada
@@ -82,6 +87,11 @@
     <!-- VIEW 1: STUDENT TIMELINE GAME -->
     <section class="view-section view-section--active" id="studentView">
       
+      <!-- BANNER DE TURNO ACTIVO PROPIO -->
+      <div id="myTurnAlertBanner" style="display: none; background: linear-gradient(90deg, var(--color-neon-pink), var(--color-neon-purple)); color: #fff; text-align: center; padding: 0.8rem; border-radius: var(--radius-md); font-family: var(--font-heading); font-size: 1.1rem; font-weight: bold; box-shadow: var(--shadow-pink-glow); margin-bottom: 1rem; animation: pulse 1.2s infinite;">
+        🌟 ¡ATENCIÓN! ES TU TURNO DE COLOCAR LA CARTA DE TU EQUIPO 🌟
+      </div>
+
       <!-- TEAM HUD & TURN TIMER BAR -->
       <div class="game-hud">
         
@@ -99,9 +109,9 @@
         <div class="hud-card hud-card--player" id="hudCardPlayerBox">
           <span class="hud-card__icon">👤</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">JUGADOR DE TURNO</span>
+            <span class="hud-card__label">REPRESENTANTE EN TURNO</span>
             <span class="hud-card__value" id="hudActiveTurnPlayer">Alex Mercer</span>
-            <span class="hud-card__subtext">Representante del Equipo</span>
+            <span class="hud-card__subtext" id="hudTurnPlayerSubtext">Representante del Equipo</span>
           </div>
         </div>
 
@@ -408,7 +418,7 @@
         </div>
       </div>
 
-      <p class="modal__subtitle">Escribe este código en el tablero. Los estudiantes aparecerán aquí en tiempo real a medida que se conecten desde sus celulares:</p>
+      <p class="modal__subtitle">Escribe este código en el tablero. Los estudiantes aparecerán aquí distribuida y equitativamente entre los equipos en tiempo real:</p>
 
       <!-- LOBBY LIVE TEAMS GRID -->
       <div class="lobby-teams-grid" id="onlineLobbyLiveTeamsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; max-height: 320px; overflow-y: auto; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm);">
@@ -556,7 +566,7 @@
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=4.0 -->
-  <script src="app.js?v=4.0"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=5.0 -->
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>
