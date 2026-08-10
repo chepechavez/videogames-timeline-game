@@ -120,7 +120,12 @@ let gameState = {
   turnTimeLeft: 60,
   turnTimerInterval: null,
   
+  // ESTRUCTURA DE RONDAS Y DESEMPATE (MECÁNICA OFICIAL TIMELINE)
   totalTurnsPlayed: 0,
+  currentRoundTurnCount: 0,
+  isTieBreakMode: false,
+  tieBreakTeamIndices: [], // Equipos que participan en la ronda de desempate
+  
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
   isGameOver: false
@@ -406,7 +411,7 @@ function scrollTimelineTrack(distance) {
 }
 
 /* ==========================================================================
-   GAMEPLAY ENGINE
+   GAMEPLAY ENGINE - MECÁNICA OFICIAL DE RONDAS DE TIMELINE
    ========================================================================== */
 
 function initNewGame() {
@@ -420,9 +425,14 @@ function initNewGame() {
     3: { correct: 0, errors: 0, attempts: 0 }
   };
   gameState.cardErrorTracker = {};
-  gameState.currentTurnTeamIndex = Math.floor(Math.random() * gameState.numTeams);
+  gameState.currentTurnTeamIndex = 0;
   gameState.selectedHandCardId = null;
+  
   gameState.totalTurnsPlayed = 0;
+  gameState.currentRoundTurnCount = 0;
+  gameState.isTieBreakMode = false;
+  gameState.tieBreakTeamIndices = [];
+  
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
 
@@ -514,7 +524,8 @@ function handleTurnTimeout() {
   addChatMessage("🤖 Sistema", `⏱️ ¡Tiempo agotado (60s)! ${ALL_TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
   gameState.teamStreaks[gameState.currentTurnTeamIndex] = 0;
   gameState.totalTurnsPlayed++;
-  advanceTurn();
+  gameState.currentRoundTurnCount++;
+  advanceTurnOrEvaluateRound();
 }
 
 function renderTimelineTable() {
@@ -563,7 +574,7 @@ function renderTeamHand() {
   const hand = gameState.teamHands[gameState.userTeamId] || [];
 
   if (hand.length === 0) {
-    grid.innerHTML = `<div style="color: var(--color-neon-green); font-family: var(--font-heading); padding: 1rem;">¡Mano vacía! Este equipo ha liberado todas sus cartas.</div>`;
+    grid.innerHTML = `<div style="color: var(--color-neon-green); font-family: var(--font-heading); padding: 1rem;">¡Mano vacía! Este equipo ha liberado todas sus cartas y espera el final de la ronda.</div>`;
     return;
   }
 
@@ -607,6 +618,7 @@ function handleSlotClick(slotIndex) {
   const cardToPlace = activeHand[cardIndexInHand];
   gameState.teamStats[activeTeamIndex].attempts++;
   gameState.totalTurnsPlayed++;
+  gameState.currentRoundTurnCount++;
 
   const table = gameState.tableCards;
   const count = table.length;
@@ -665,7 +677,7 @@ function handleSlotClick(slotIndex) {
     }
   }, 100);
 
-  checkEndGameOrAdvanceTurn();
+  advanceTurnOrEvaluateRound();
 }
 
 function triggerStreakOverlay(streakCount) {
@@ -686,59 +698,131 @@ function triggerStreakOverlay(streakCount) {
   }, 1800);
 }
 
-// 🎯 CÁLCULO Y RENDERIZADO DINÁMICO DE ESTADÍSTICAS EN EL MODAL DIAGNÓSTICO
-function checkEndGameOrAdvanceTurn() {
-  const winningTeams = [];
-  for (let t = 0; t < gameState.numTeams; t++) {
-    if (gameState.teamHands[t].length === 0) {
-      winningTeams.push(t);
-    }
+/* ==========================================================================
+   🎯 MECÁNICA OFICIAL DE EVALUACIÓN DE RONDA COMPLETA Y DESEMPATE DE TIMELINE
+   ========================================================================== */
+function advanceTurnOrEvaluateRound() {
+  const activeTeamsList = gameState.isTieBreakMode 
+    ? gameState.tieBreakTeamIndices 
+    : Array.from({ length: gameState.numTeams }, (_, i) => i);
+
+  // SI AÚN NO HA TERMINADO EL CICLO DE TODOS LOS EQUIPOS DE ESTA RONDA COMPLETA:
+  if (gameState.currentRoundTurnCount < activeTeamsList.length) {
+    // Pasar al siguiente equipo de la lista activa
+    const currentPosInList = activeTeamsList.indexOf(gameState.currentTurnTeamIndex);
+    const nextPosInList = (currentPosInList + 1) % activeTeamsList.length;
+    gameState.currentTurnTeamIndex = activeTeamsList[nextPosInList];
+
+    updateHud();
+    renderTeamHand();
+    startTurnTimer();
+    return;
   }
 
-  if (winningTeams.length > 0) {
-    gameState.isGameOver = true;
-    clearInterval(gameState.turnTimerInterval);
+  // 🏁 ¡SE HA COMPLETADO UNA RONDA COMPLETA! EVALUAR ESTADO DE VICTORIA O DESEMPATE
+  gameState.currentRoundTurnCount = 0;
 
-    let winnerText = "";
-    if (winningTeams.length === 1) {
-      const winner = ALL_TEAMS[winningTeams[0]];
-      winnerText = `🏆 ¡${winner.name} HA GANADO LA PARTIDA!`;
-      playSynthSound('victory');
-    } else {
-      winnerText = `⚖️ ¡EMPATE entre ${winningTeams.map(t => ALL_TEAMS[t].name).join(", ")}!`;
-    }
+  // Filtrar cuáles equipos de la lista activa terminaron la ronda con 0 cartas
+  const zeroCardTeams = activeTeamsList.filter(t => gameState.teamHands[t].length === 0);
 
-    // CALCULAR EFECTIVIDAD GLOBAL Y TOTAL DE RONDAS/TURNOS JUGADOS
-    let totalAttempts = 0;
-    let totalCorrect = 0;
-    for (let t = 0; t < gameState.numTeams; t++) {
-      totalAttempts += gameState.teamStats[t].attempts;
-      totalCorrect += gameState.teamStats[t].correct;
-    }
-    const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
-    const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
-
-    document.getElementById("diagTitle").textContent = winnerText;
-    
-    const diagAccEl = document.getElementById("diagAccuracy");
-    if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
-
-    const diagRoundsEl = document.getElementById("diagRounds");
-    if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
-
-    document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
-
-    sendWebhookTelemetry();
-  } else {
-    advanceTurn();
+  // CASO A: EXACTAMENTE 1 EQUIPO QUEDÓ EN 0 CARTAS -> ¡GANADOR ÚNICO!
+  if (zeroCardTeams.length === 1) {
+    declareWinner(zeroCardTeams[0]);
+    return;
   }
-}
 
-function advanceTurn() {
-  gameState.currentTurnTeamIndex = (gameState.currentTurnTeamIndex + 1) % gameState.numTeams;
+  // CASO B: VARIOS EQUIPOS QUEDARON EN 0 CARTAS AL MISMO TIEMPO -> ¡RONDA DE DESEMPATE!
+  if (zeroCardTeams.length > 1) {
+    gameState.isTieBreakMode = true;
+    gameState.tieBreakTeamIndices = zeroCardTeams;
+
+    addChatMessage("🤖 Sistema", `⚡ ¡¡DESEMPATE DE INFARTO!! Los equipos ${zeroCardTeams.map(t => ALL_TEAMS[t].name).join(" y ")} terminaron la ronda sin cartas. ¡Cada uno roba 1 carta para la ronda de desempate!`);
+
+    // Cada equipo empatado roba exactamente 1 carta de la reserva
+    let availableDeck = gameState.reserveDeck.length > 0;
+    zeroCardTeams.forEach(t => {
+      if (gameState.reserveDeck.length > 0) {
+        gameState.teamHands[t].push(gameState.reserveDeck.pop());
+      }
+    });
+
+    if (!availableDeck) {
+      declareTie(zeroCardTeams);
+      return;
+    }
+
+    gameState.currentTurnTeamIndex = zeroCardTeams[0];
+    updateHud();
+    renderTeamHand();
+    startTurnTimer();
+    return;
+  }
+
+  // CASO C: SI ESTÁBAMOS EN MODO DESEMPATE Y AMBOS FALLARON O SE ACABÓ EL MAZO -> EMPATE
+  if (gameState.isTieBreakMode && gameState.reserveDeck.length === 0) {
+    declareTie(gameState.tieBreakTeamIndices);
+    return;
+  }
+
+  // CASO D: NADIE TIENE 0 CARTAS AÚN -> CONTINUAR A LA SIGUIENTE RONDA NORMAL
+  gameState.currentTurnTeamIndex = activeTeamsList[0];
   updateHud();
   renderTeamHand();
   startTurnTimer();
+}
+
+function declareWinner(winnerTeamIndex) {
+  gameState.isGameOver = true;
+  clearInterval(gameState.turnTimerInterval);
+
+  const winner = ALL_TEAMS[winnerTeamIndex];
+  playSynthSound('victory');
+
+  let totalAttempts = 0;
+  let totalCorrect = 0;
+  for (let t = 0; t < gameState.numTeams; t++) {
+    totalAttempts += gameState.teamStats[t].attempts;
+    totalCorrect += gameState.teamStats[t].correct;
+  }
+  const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+  const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
+
+  document.getElementById("diagTitle").textContent = `🏆 ¡${winner.name.toUpperCase()} HA GANADO LA PARTIDA!`;
+  
+  const diagAccEl = document.getElementById("diagAccuracy");
+  if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
+
+  const diagRoundsEl = document.getElementById("diagRounds");
+  if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
+
+  document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
+  sendWebhookTelemetry();
+}
+
+function declareTie(tiedTeamIndices) {
+  gameState.isGameOver = true;
+  clearInterval(gameState.turnTimerInterval);
+
+  let totalAttempts = 0;
+  let totalCorrect = 0;
+  for (let t = 0; t < gameState.numTeams; t++) {
+    totalAttempts += gameState.teamStats[t].attempts;
+    totalCorrect += gameState.teamStats[t].correct;
+  }
+  const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+  const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
+
+  const names = tiedTeamIndices.map(t => ALL_TEAMS[t].name).join(" y ");
+  document.getElementById("diagTitle").textContent = `⚖️ ¡EMPATE OFICIAL ENTRE ${names.toUpperCase()}!`;
+  
+  const diagAccEl = document.getElementById("diagAccuracy");
+  if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
+
+  const diagRoundsEl = document.getElementById("diagRounds");
+  if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
+
+  document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
+  sendWebhookTelemetry();
 }
 
 function handleSendChatMessage(e) {
