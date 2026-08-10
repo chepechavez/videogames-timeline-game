@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gaming History Timeline & Live Dashboard</title>
+  
+  <!-- Google Fonts: Retro & Cyberpunk Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Design System (BEM Architecture) -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- CRT Visual Overlay (Toggleable Retro Arcade Effect) -->
+  <div class="crt-overlay" id="crtOverlay"></div>
+
+  <!-- APPLICATION HEADER & NAVIGATION (BEM: .app-header) -->
+  <header class="app-header">
+    <div class="app-header__brand">
+      <span class="app-header__logo-icon">🎮</span>
+      <div>
+        <h1 class="app-header__title">RETRO TIMELINE ACADEMY</h1>
+        <p class="app-header__subtitle">Ecosistema Educativo de Historia de los Videojuegos</p>
+      </div>
+    </div>
+
+    <!-- Interface Switcher Tabs -->
+    <nav class="app-header__nav" aria-label="Navegación principal">
+      <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
+        <span>🕹️</span> Minijuego Estudiante
+      </button>
+      <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
+        <span>📊</span> Dashboard Profesor
+      </button>
+    </nav>
+  </header>
+
+  <!-- MAIN APPLICATION CONTAINER -->
+  <main class="app-body">
+
+    <!-- VIEW 1: STUDENT MINIGAME (BEM: .game-view) -->
+    <section class="view-section view-section--active" id="studentView">
+      
+      <!-- HUD / STATS BAR -->
+      <div class="game-hud">
+        <div class="hud-card hud-card--xp">
+          <span class="hud-card__icon">⚡</span>
+          <div class="hud-card__content">
+            <span class="hud-card__label">Experiencia (XP)</span>
+            <span class="hud-card__value" id="hudXp">0 XP</span>
+          </div>
+        </div>
+
+        <div class="hud-card hud-card--streak">
+          <span class="hud-card__icon">🔥</span>
+          <div class="hud-card__content">
+            <span class="hud-card__label">Racha de Aciertos</span>
+            <span class="hud-card__value" id="hudStreak">0x</span>
+          </div>
+        </div>
+
+        <div class="hud-card hud-card--progress">
+          <span class="hud-card__icon">🎯</span>
+          <div class="hud-card__content">
+            <span class="hud-card__label">Progreso</span>
+            <span class="hud-card__value" id="hudProgress">0 / 31</span>
+          </div>
+        </div>
+
+        <div class="hud-card">
+          <span class="hud-card__icon">⏱️</span>
+          <div class="hud-card__content">
+            <span class="hud-card__label">Tiempo Transcurrido</span>
+            <span class="hud-card__value" id="hudTimer">00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAY ARENA: ACTIVE EVENT CARD -->
+      <div class="game-arena">
+        <div class="game-arena__instruction">
+          <span>👇</span> Arrastra la tarjeta a la década correspondiente o haz clic en la década abajo
+        </div>
+
+        <!-- Active Card Container -->
+        <div id="cardDeckContainer" style="width: 100%; display: flex; justify-content: center;">
+          <!-- Card dynamically rendered here -->
+        </div>
+      </div>
+
+      <!-- TIMELINE DECADES GRID (1940s - 2020s) -->
+      <div class="timeline">
+        <h2 class="timeline__title">LÍNEA DE TIEMPO HISTÓRICA DE LOS VIDEOJUEGOS</h2>
+        <div class="timeline__grid" id="timelineGrid">
+          <!-- 9 Decade slots (1940s to 2020s) dynamically populated -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- VIEW 2: TEACHER LIVE DASHBOARD (BEM: .dashboard) -->
+    <section class="view-section" id="teacherView">
+      
+      <div class="dashboard">
+        <!-- TOP CONTROL BAR -->
+        <div class="dashboard__top-bar">
+          <div class="dashboard__title">
+            <span>📺</span> PANEL DE CONTROL DOCENTE EN VIVO
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <!-- Live HTTP Polling Pulse Indicator -->
+            <div class="live-indicator">
+              <span class="live-indicator__dot"></span>
+              <span>EN VIVO - Actualizando...</span>
+            </div>
+
+            <!-- Demo Simulation Button for Classrooms -->
+            <button class="btn-secondary" onclick="simulateStudentSubmission()" title="Simula el envío automático de un estudiante para probar el dashboard en vivo">
+              🧪 Simular Estudiante
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI CARDS GRID -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-card__header">
+              <span class="kpi-card__title">Estudiantes Activos</span>
+              <span class="kpi-card__icon">👥</span>
+            </div>
+            <div class="kpi-card__value" id="kpiActiveStudents">0</div>
+            <div class="kpi-card__meta">
+              <span>● En sesión / completados</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-card__header">
+              <span class="kpi-card__title">Promedio Precisión General</span>
+              <span class="kpi-card__icon">🎯</span>
+            </div>
+            <div class="kpi-card__value" id="kpiAvgAccuracy">0%</div>
+            <div class="kpi-card__meta">
+              <span>● Primer intento exitoso</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-card__header">
+              <span class="kpi-card__title">Tiempo Promedio de Resolución</span>
+              <span class="kpi-card__icon">⏱️</span>
+            </div>
+            <div class="kpi-card__value" id="kpiAvgTime">0s</div>
+            <div class="kpi-card__meta">
+              <span>● Velocidad por partida completa</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- LEADERBOARD & METRICS TABLE -->
+        <div class="leaderboard-card">
+          <div class="leaderboard-card__title">
+            <span>🏆 LEADERBOARD EN TIEMPO REAL</span>
+            <span style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: normal;">
+              Ordenado por Aciertos primer intento ➔ Tiempo total
+            </span>
+          </div>
+
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>Puntaje XP</th>
+                <th>Precisión / Aciertos vs Errores</th>
+                <th>Velocidad Prom.</th>
+                <th>Tiempo Total</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+              <!-- Dynamically rendered rows from GET Polling data -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: STUDENT INITIAL REGISTRATION FORM -->
+  <div class="modal-overlay modal-overlay--active" id="modalStudentRegister">
+    <div class="modal">
+      <h2 class="modal__title">🚀 INICIAR DESAFÍO HISTÓRICO</h2>
+      <p class="modal__subtitle">Ingresa tus datos para registrar tus logros en la sesión del aula:</p>
+
+      <form id="studentRegisterForm" onsubmit="handleStartGame(event)">
+        <div class="form-group">
+          <label class="form-group__label" for="inputStudentName">Nombre del Estudiante:</label>
+          <input type="text" id="inputStudentName" class="form-group__input" placeholder="Ej: Alex Mercer" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-group__label" for="inputStudentId">ID / Código de Estudiante:</label>
+          <input type="text" id="inputStudentId" class="form-group__input" placeholder="Ej: EST-9482" required>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top: 1rem;">
+          ¡COMENZAR JUEGO! 🕹️
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: MULTICHANNEL DIAGNOSTIC RESULT PANEL (PEDAGOGIC BEM FEEDBACK) -->
+  <div class="modal-overlay" id="modalDiagnostic">
+    <div class="modal" style="max-width: 600px;">
+      <h2 class="modal__title">📋 DIAGNÓSTICO DE APRENDIZAJE</h2>
+      <p class="modal__subtitle">Evaluación pedagógica continua multicanal completada:</p>
+
+      <!-- Diagnostic Metrics Grid -->
+      <div class="diagnostic-grid">
+        <div class="diagnostic-box">
+          <span class="diagnostic-box__label">Precisión de Conocimiento</span>
+          <span class="diagnostic-box__value diagnostic-box__value--accuracy" id="diagAccuracy">0%</span>
+          <span style="font-size: 0.75rem; color: var(--color-text-muted);" id="diagAccuracySub">0 de 31 al primer intento</span>
+        </div>
+
+        <div class="diagnostic-box">
+          <span class="diagnostic-box__label">Velocidad de Decisión</span>
+          <span class="diagnostic-box__value diagnostic-box__value--speed" id="diagSpeed">0.0s</span>
+          <span style="font-size: 0.75rem; color: var(--color-text-muted);">segundos por tarjeta</span>
+        </div>
+      </div>
+
+      <!-- Experience & Performance Summary -->
+      <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-family: var(--font-heading); font-size: 1.1rem; color: var(--color-neon-yellow);" id="diagTotalXp">0 XP Ganados</div>
+        <p style="font-size: 0.85rem; color: var(--color-text-main); margin-top: 0.5rem;" id="diagFeedbackMessage">
+          ¡Gran demostración de perseverancia! Has completado la línea de tiempo usando la retroalimentación formativa.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 1rem;">
+        <button class="btn-primary" onclick="restartGame()">🔄 Jugar de Nuevo</button>
+        <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Dashboard Live</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Core App Engine -->
+  <script src="app.js"></script>
+</body>
+</html>
