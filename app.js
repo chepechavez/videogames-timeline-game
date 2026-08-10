@@ -245,6 +245,11 @@ function initSupabaseRealtime() {
             handleIncomingStudentJoin(payload.payload);
           }
         })
+        .on('broadcast', { event: 'roster_sync' }, payload => {
+          if (payload.payload) {
+            handleIncomingRosterSync(payload.payload);
+          }
+        })
         .on('broadcast', { event: 'start_game' }, payload => {
           if (payload.payload) {
             handleIncomingStartGame(payload.payload);
@@ -281,11 +286,57 @@ function broadcastStudentJoined(studentData) {
 }
 
 function handleIncomingStudentJoin(studentData) {
-  const exists = gameState.joinedStudents.some(s => s.name === studentData.name);
-  if (!exists) {
-    gameState.joinedStudents.push(studentData);
+  if (gameState.userRole === 'teacher') {
+    const existingIndex = gameState.joinedStudents.findIndex(s => s.name.toLowerCase() === studentData.name.toLowerCase());
+    if (existingIndex === -1) {
+      gameState.joinedStudents.push({
+        name: studentData.name,
+        clientId: studentData.clientId,
+        teamId: 0
+      });
+    } else {
+      gameState.joinedStudents[existingIndex].clientId = studentData.clientId;
+    }
+
+    // REPARTICIÓN EQUITATIVA DE GRUPOS REALIZADA EXCLUSIVAMENTE POR LA PANTALLA MAESTRA DEL PROFESOR (0, 1, 2, 3...)
+    gameState.joinedStudents.forEach((s, idx) => {
+      s.teamId = idx % gameState.numTeams;
+    });
+
     renderTeacherOnlineLobbyGrid();
     renderTeacherDashboard();
+    broadcastRosterSync();
+  }
+}
+
+function broadcastRosterSync() {
+  if (realtimeChannel && gameState.userRole === 'teacher') {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'roster_sync',
+      senderId: gameState.myClientId,
+      payload: { joinedStudents: gameState.joinedStudents }
+    });
+  }
+}
+
+function handleIncomingRosterSync(data) {
+  if (data && data.joinedStudents) {
+    gameState.joinedStudents = data.joinedStudents;
+    
+    // Buscar la asignación oficial del equipo realizada por la pantalla maestra del profesor
+    const myInfo = gameState.joinedStudents.find(s => 
+      (gameState.playerName && s.name.toLowerCase() === gameState.playerName.toLowerCase()) || 
+      (s.clientId && s.clientId === gameState.myClientId)
+    );
+
+    if (myInfo) {
+      gameState.userTeamId = myInfo.teamId;
+      const waitingTeamEl = document.getElementById("waitingStudentTeam");
+      if (waitingTeamEl) {
+        waitingTeamEl.textContent = `${ALL_TEAMS[myInfo.teamId].icon} ${ALL_TEAMS[myInfo.teamId].name}`;
+      }
+    }
   }
 }
 
@@ -523,29 +574,15 @@ function handleStudentJoinSubmit(e) {
   gameState.playerName = name;
   gameState.roomCode = code;
   gameState.gameMode = "online";
-
-  // ASIGNACIÓN EQUITATIVA DE GRUPOS (EQUIPO CON MENOS INTEGRANTES)
-  let teamCounts = Array(gameState.numTeams).fill(0);
-  gameState.joinedStudents.forEach(s => {
-    if (s.teamId < gameState.numTeams) teamCounts[s.teamId]++;
-  });
-  let minCount = Math.min(...teamCounts);
-  let candidateTeams = [];
-  for (let t = 0; t < gameState.numTeams; t++) {
-    if (teamCounts[t] === minCount) candidateTeams.push(t);
-  }
-  const assignedTeamIndex = candidateTeams[0];
-  gameState.userTeamId = assignedTeamIndex;
   
-  const studentPayload = { name, teamId: assignedTeamIndex, roomCode: code };
-  gameState.joinedStudents.push(studentPayload);
+  const studentPayload = { name, clientId: gameState.myClientId, roomCode: code };
 
   closeAllModals();
   applyGameModeUI();
 
   // ABRIR SALA DE ESPERA DEL ESTUDIANTE
   document.getElementById("waitingStudentName").textContent = name;
-  document.getElementById("waitingStudentTeam").textContent = ALL_TEAMS[assignedTeamIndex].name;
+  document.getElementById("waitingStudentTeam").textContent = "Asignando por el profesor...";
   document.getElementById("waitingStudentRoomCode").textContent = code;
   document.getElementById("modalStudentWaiting").classList.add("modal-overlay--active");
 
@@ -765,7 +802,7 @@ function updateHud() {
   const playerBox = document.getElementById("hudCardPlayerBox");
   const subtextEl = document.getElementById("hudTurnPlayerSubtext");
 
-  const isMyTurn = (gameState.playerName && gameState.playerName === activePlayerName);
+  const isMyTurn = (gameState.playerName && gameState.playerName.toLowerCase() === activePlayerName.toLowerCase());
 
   if (isMyTurn) {
     if (myTurnAlertBanner) {
