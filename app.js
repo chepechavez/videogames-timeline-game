@@ -1,8 +1,17 @@
 /* ==========================================================================
-   TIMELINE BOARD GAME - MULTIPLAYER CORE ENGINE
+   TIMELINE BOARD GAME - MULTIPLAYER CORE ENGINE WITH SUPABASE REALTIME
    Fiel a las mecánicas del juego de mesa con 74 Eventos e Imágenes Oficiales
    Fuente: The Strong National Museum of Play (museumofplay.org)
    ========================================================================== */
+
+/* ==========================================================================
+   🔑 SUPABASE CONFIGURATION (REEMPLAZA ESTAS 2 LLAVES CON LAS DE TU PANEL)
+   ========================================================================== */
+const SUPABASE_URL = "TU_SUPABASE_URL_AQUI";
+const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
+
+let supabaseClient = null;
+let realtimeChannel = null;
 
 const WEBHOOK_URL = "";
 
@@ -92,6 +101,7 @@ const ALL_TEAMS = [
 
 // STATE MANAGEMENT
 let gameState = {
+  myClientId: Math.random().toString(36).substring(2, 9),
   userRole: "teacher", // "teacher" or "student"
   gameMode: "projector", // "projector" or "online"
   numTeams: 4,
@@ -117,13 +127,11 @@ let gameState = {
   currentTurnTeamIndex: 0,
   selectedHandCardId: null,
   
-  // MEDICIÓN DE TIEMPO POR TURNO
   turnTimeLeft: 60,
   turnTimerInterval: null,
   turnStartTime: 0,
-  turnTimesList: [], // Lista de tiempos (en segundos) por turno
+  turnTimesList: [],
   
-  // REGISTRO DE CARTAS ÚNICAS REVELADAS
   uniqueCardsSeen: new Set(),
   
   totalTurnsPlayed: 0,
@@ -220,6 +228,85 @@ function launchConfetti() {
 }
 
 /* ==========================================================================
+   SUPABASE REALTIME SYNCHRONIZATION ENGINE
+   ========================================================================== */
+function initSupabaseRealtime() {
+  if (typeof supabase !== 'undefined' && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI" && SUPABASE_ANON_KEY !== "TU_SUPABASE_ANON_KEY_AQUI") {
+    try {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const roomChannelName = `timeline_room_${gameState.roomCode}`;
+      
+      realtimeChannel = supabaseClient.channel(roomChannelName);
+      
+      realtimeChannel
+        .on('broadcast', { event: 'game_sync' }, payload => {
+          if (payload.payload && payload.senderId !== gameState.myClientId) {
+            syncIncomingGameState(payload.payload);
+          }
+        })
+        .on('broadcast', { event: 'chat_msg' }, payload => {
+          if (payload.payload && payload.senderId !== gameState.myClientId) {
+            addChatMessage(payload.payload.sender, payload.payload.text, false);
+          }
+        })
+        .subscribe();
+        
+      console.log("⚡ Supabase Realtime conectado a la sala:", roomChannelName);
+    } catch (e) {
+      console.warn("Error al inicializar Supabase Realtime:", e);
+    }
+  }
+}
+
+function broadcastGameState() {
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'game_sync',
+      senderId: gameState.myClientId,
+      payload: {
+        tableCards: gameState.tableCards,
+        teamHands: gameState.teamHands,
+        currentTurnTeamIndex: gameState.currentTurnTeamIndex,
+        teamStats: gameState.teamStats,
+        cardErrorTracker: gameState.cardErrorTracker,
+        totalTurnsPlayed: gameState.totalTurnsPlayed,
+        currentRoundTurnCount: gameState.currentRoundTurnCount,
+        isTieBreakMode: gameState.isTieBreakMode,
+        tieBreakTeamIndices: gameState.tieBreakTeamIndices,
+        joinedStudents: gameState.joinedStudents
+      }
+    });
+  }
+}
+
+function broadcastChatMessage(sender, text) {
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'chat_msg',
+      senderId: gameState.myClientId,
+      payload: { sender, text }
+    });
+  }
+}
+
+function syncIncomingGameState(data) {
+  if (!data) return;
+  if (data.tableCards) gameState.tableCards = data.tableCards;
+  if (data.teamHands) gameState.teamHands = data.teamHands;
+  if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
+  if (data.teamStats) gameState.teamStats = data.teamStats;
+  if (data.cardErrorTracker) gameState.cardErrorTracker = data.cardErrorTracker;
+  if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
+
+  updateHud();
+  renderTimelineTable();
+  renderTeamHand();
+  renderTeacherDashboard();
+}
+
+/* ==========================================================================
    INITIALIZATION & ROLE SELECTION FLOW
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
@@ -311,6 +398,7 @@ function handleTeacherSubmitConfig(e) {
   closeAllModals();
   applyGameModeUI();
   initNewGame();
+  initSupabaseRealtime();
 }
 
 function handleStudentJoinSubmit(e) {
@@ -331,6 +419,7 @@ function handleStudentJoinSubmit(e) {
   closeAllModals();
   applyGameModeUI();
   initNewGame();
+  initSupabaseRealtime();
 }
 
 function applyGameModeUI() {
@@ -474,12 +563,10 @@ function initNewGame() {
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
 
-  // CARTA ANCLA INICIAL DE LA MESA
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
   gameState.uniqueCardsSeen.add(anchorCard.id);
 
-  // REPARTIR MANOS SEGÚN NÚMERO DE EQUIPOS (2=6, 3=5, 4=4)
   for (let t = 0; t < gameState.numTeams; t++) {
     for (let c = 0; c < gameState.initialCardsPerTeam; c++) {
       if (gameState.reserveDeck.length > 0) {
@@ -495,6 +582,7 @@ function initNewGame() {
   renderTeamHand();
   renderTeacherDashboard();
   startTurnTimer();
+  broadcastGameState();
 }
 
 function shuffleArray(arr) {
@@ -726,6 +814,7 @@ function handleSlotClick(slotIndex) {
 
   renderTimelineTable();
   renderTeamHand();
+  broadcastGameState();
 
   setTimeout(() => {
     const track = document.getElementById("timelineTrack");
@@ -769,6 +858,7 @@ function advanceTurnOrEvaluateRound() {
     updateHud();
     renderTeamHand();
     startTurnTimer();
+    broadcastGameState();
     return;
   }
 
@@ -804,6 +894,7 @@ function advanceTurnOrEvaluateRound() {
     updateHud();
     renderTeamHand();
     startTurnTimer();
+    broadcastGameState();
     return;
   }
 
@@ -816,6 +907,7 @@ function advanceTurnOrEvaluateRound() {
   updateHud();
   renderTeamHand();
   startTurnTimer();
+  broadcastGameState();
 }
 
 function declareWinner(winnerTeamIndex) {
@@ -844,6 +936,7 @@ function declareWinner(winnerTeamIndex) {
 
   document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
   sendWebhookTelemetry();
+  broadcastGameState();
 }
 
 function declareTie(tiedTeamIndices) {
@@ -870,6 +963,7 @@ function declareTie(tiedTeamIndices) {
 
   document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
   sendWebhookTelemetry();
+  broadcastGameState();
 }
 
 function handleSendChatMessage(e) {
@@ -879,11 +973,11 @@ function handleSendChatMessage(e) {
   if (!msgText) return;
 
   const sender = `${gameState.playerName ? gameState.playerName : 'Jugador'} (${ALL_TEAMS[gameState.userTeamId].name})`;
-  addChatMessage(sender, msgText);
+  addChatMessage(sender, msgText, true);
   input.value = "";
 }
 
-function addChatMessage(sender, text) {
+function addChatMessage(sender, text, shouldBroadcast = true) {
   const container = document.getElementById("chatMessages");
   if (!container) return;
   const msgEl = document.createElement("div");
@@ -894,20 +988,22 @@ function addChatMessage(sender, text) {
   `;
   container.appendChild(msgEl);
   container.scrollTop = container.scrollHeight;
+
+  if (shouldBroadcast) {
+    broadcastChatMessage(sender, text);
+  }
 }
 
 /* ==========================================================================
    📊 DASHBOARD CON MÉTRICAS Y KPIS DINÁMICOS
    ========================================================================== */
 function renderTeacherDashboard() {
-  // KPI 1: EQUIPOS ACTIVOS Y CARTAS EN MANO
   document.getElementById("kpiActiveStudents").textContent = `${gameState.numTeams} Equipos`;
   const kpiCardsPerTeamMeta = document.getElementById("kpiCardsPerTeamMeta");
   if (kpiCardsPerTeamMeta) {
     kpiCardsPerTeamMeta.textContent = `● ${gameState.initialCardsPerTeam} cartas en mano por equipo`;
   }
 
-  // KPI 2: EFECTIVIDAD GENERAL
   let totalAttempts = 0;
   let totalCorrect = 0;
   for (let t = 0; t < gameState.numTeams; t++) {
@@ -917,7 +1013,6 @@ function renderTeacherDashboard() {
   const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
   document.getElementById("kpiAvgAccuracy").textContent = `${overallAccuracy}%`;
 
-  // KPI 3: TIEMPO PROMEDIO VS MEJOR TIEMPO REGISTRADO
   let avgTime = 0;
   let bestTime = 0;
   if (gameState.turnTimesList && gameState.turnTimesList.length > 0) {
@@ -933,7 +1028,6 @@ function renderTeacherDashboard() {
       : `● Máximo 60s por turno`;
   }
 
-  // KPI 4: CARTAS EN MESA VS TOTAL DE CARTAS DIVERSIFICADAS REVELADAS
   const cardsInTableCount = gameState.tableCards.length;
   const totalRevealedCount = gameState.uniqueCardsSeen ? gameState.uniqueCardsSeen.size : cardsInTableCount;
   document.getElementById("kpiCardsInTable").textContent = `${cardsInTableCount}`;
@@ -942,7 +1036,6 @@ function renderTeacherDashboard() {
     kpiCardsInTableMeta.textContent = `● Ordenadas: ${cardsInTableCount} de ${totalRevealedCount} cartas reveladas`;
   }
 
-  // TABLA DE LIDERAZGO POR EQUIPO
   const tbody = document.getElementById("leaderboardBody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -968,7 +1061,6 @@ function renderTeacherDashboard() {
     tbody.appendChild(tr);
   }
 
-  // TABLA DE CARTAS MÁS DIFÍCILES
   const hardestBody = document.getElementById("hardestCardsBody");
   if (!hardestBody) return;
   hardestBody.innerHTML = "";
