@@ -120,6 +120,7 @@ let gameState = {
   turnTimeLeft: 60,
   turnTimerInterval: null,
   
+  totalTurnsPlayed: 0,
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
   isGameOver: false
@@ -322,7 +323,6 @@ function handleStudentJoinSubmit(e) {
   initNewGame();
 }
 
-// 🎨 ADAPTACIÓN DINÁMICA DE NOMBRES DE PESTAÑAS Y VISIBILIDAD DE BOTONES
 function applyGameModeUI() {
   const layout = document.getElementById("mainGameLayout");
   const chatSidebar = document.getElementById("teamChatSidebar");
@@ -336,14 +336,12 @@ function applyGameModeUI() {
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
 
-  // ADAPTACIÓN POR ROL: PROFESOR VS ESTUDIANTE
   if (gameState.userRole === 'teacher') {
     if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
     if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "inline-flex";
     if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Dashboard Profesor";
     if (dashboardTitleText) dashboardTitleText.textContent = "📺 PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO";
   } else {
-    // ROL ESTUDIANTE: Puede ver el Tablero General pero NO puede crear/cambiar partidas
     if (btnChangeMode) btnChangeMode.style.display = "none";
     if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "none";
     if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Tablero General";
@@ -424,6 +422,7 @@ function initNewGame() {
   gameState.cardErrorTracker = {};
   gameState.currentTurnTeamIndex = Math.floor(Math.random() * gameState.numTeams);
   gameState.selectedHandCardId = null;
+  gameState.totalTurnsPlayed = 0;
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
 
@@ -514,6 +513,7 @@ function handleTurnTimeout() {
   playSynthSound('error');
   addChatMessage("🤖 Sistema", `⏱️ ¡Tiempo agotado (60s)! ${ALL_TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
   gameState.teamStreaks[gameState.currentTurnTeamIndex] = 0;
+  gameState.totalTurnsPlayed++;
   advanceTurn();
 }
 
@@ -606,6 +606,7 @@ function handleSlotClick(slotIndex) {
 
   const cardToPlace = activeHand[cardIndexInHand];
   gameState.teamStats[activeTeamIndex].attempts++;
+  gameState.totalTurnsPlayed++;
 
   const table = gameState.tableCards;
   const count = table.length;
@@ -685,6 +686,7 @@ function triggerStreakOverlay(streakCount) {
   }, 1800);
 }
 
+// 🎯 CÁLCULO Y RENDERIZADO DINÁMICO DE ESTADÍSTICAS EN EL MODAL DIAGNÓSTICO
 function checkEndGameOrAdvanceTurn() {
   const winningTeams = [];
   for (let t = 0; t < gameState.numTeams; t++) {
@@ -706,7 +708,24 @@ function checkEndGameOrAdvanceTurn() {
       winnerText = `⚖️ ¡EMPATE entre ${winningTeams.map(t => ALL_TEAMS[t].name).join(", ")}!`;
     }
 
+    // CALCULAR EFECTIVIDAD GLOBAL Y TOTAL DE RONDAS/TURNOS JUGADOS
+    let totalAttempts = 0;
+    let totalCorrect = 0;
+    for (let t = 0; t < gameState.numTeams; t++) {
+      totalAttempts += gameState.teamStats[t].attempts;
+      totalCorrect += gameState.teamStats[t].correct;
+    }
+    const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+    const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
+
     document.getElementById("diagTitle").textContent = winnerText;
+    
+    const diagAccEl = document.getElementById("diagAccuracy");
+    if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
+
+    const diagRoundsEl = document.getElementById("diagRounds");
+    if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
+
     document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
 
     sendWebhookTelemetry();
