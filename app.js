@@ -127,9 +127,11 @@ let gameState = {
   currentTurnTeamIndex: 0,
   selectedHandCardId: null,
   
+  // UNIFIED TURN TIMER Across All Devices
   turnTimeLeft: 60,
   turnTimerInterval: null,
-  turnStartTime: 0,
+  turnStartTimeStamp: 0,
+  lastTickedSecond: -1,
   turnTimesList: [],
   
   uniqueCardsSeen: new Set(),
@@ -298,7 +300,6 @@ function handleIncomingStudentJoin(studentData) {
       gameState.joinedStudents[existingIndex].clientId = studentData.clientId;
     }
 
-    // REPARTICIÓN EQUITATIVA DE GRUPOS REALIZADA EXCLUSIVAMENTE POR LA PANTALLA MAESTRA DEL PROFESOR (0, 1, 2, 3...)
     gameState.joinedStudents.forEach((s, idx) => {
       s.teamId = idx % gameState.numTeams;
     });
@@ -324,7 +325,6 @@ function handleIncomingRosterSync(data) {
   if (data && data.joinedStudents) {
     gameState.joinedStudents = data.joinedStudents;
     
-    // Buscar la asignación oficial del equipo realizada por la pantalla maestra del profesor
     const myInfo = gameState.joinedStudents.find(s => 
       (gameState.playerName && s.name.toLowerCase() === gameState.playerName.toLowerCase()) || 
       (s.clientId && s.clientId === gameState.myClientId)
@@ -342,6 +342,7 @@ function handleIncomingRosterSync(data) {
 
 function teacherStartMatchForAllStudents() {
   gameState.isGameStarted = true;
+  gameState.turnStartTimeStamp = Date.now();
   initNewGame();
   closeAllModals();
 
@@ -356,7 +357,8 @@ function teacherStartMatchForAllStudents() {
         currentTurnTeamIndex: gameState.currentTurnTeamIndex,
         joinedStudents: gameState.joinedStudents,
         numTeams: gameState.numTeams,
-        initialCardsPerTeam: gameState.initialCardsPerTeam
+        initialCardsPerTeam: gameState.initialCardsPerTeam,
+        turnStartTimeStamp: gameState.turnStartTimeStamp
       }
     });
   }
@@ -369,6 +371,7 @@ function handleIncomingStartGame(data) {
   if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
   if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
   if (data.numTeams) gameState.numTeams = data.numTeams;
+  if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
 
   closeAllModals();
   updateHud();
@@ -396,7 +399,8 @@ function broadcastGameState() {
         currentRoundTurnCount: gameState.currentRoundTurnCount,
         isTieBreakMode: gameState.isTieBreakMode,
         tieBreakTeamIndices: gameState.tieBreakTeamIndices,
-        joinedStudents: gameState.joinedStudents
+        joinedStudents: gameState.joinedStudents,
+        turnStartTimeStamp: gameState.turnStartTimeStamp
       }
     });
   }
@@ -421,11 +425,13 @@ function syncIncomingGameState(data) {
   if (data.teamStats) gameState.teamStats = data.teamStats;
   if (data.cardErrorTracker) gameState.cardErrorTracker = data.cardErrorTracker;
   if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
+  if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
 
   updateHud();
   renderTimelineTable();
   renderTeamHand();
   renderTeacherDashboard();
+  startTurnTimer();
 }
 
 /* ==========================================================================
@@ -523,7 +529,6 @@ function handleTeacherSubmitConfig(e) {
     gameState.isGameStarted = true;
     initNewGame();
   } else {
-    // MODO ONLINE CON SALA DE ESPERA
     const customCode = document.getElementById("inputTeacherRoomCode").value.trim().toUpperCase();
     gameState.roomCode = customCode || "AULA-101";
 
@@ -580,7 +585,6 @@ function handleStudentJoinSubmit(e) {
   closeAllModals();
   applyGameModeUI();
 
-  // ABRIR SALA DE ESPERA DEL ESTUDIANTE
   document.getElementById("waitingStudentName").textContent = name;
   document.getElementById("waitingStudentTeam").textContent = "Asignando por el profesor...";
   document.getElementById("waitingStudentRoomCode").textContent = code;
@@ -733,6 +737,7 @@ function initNewGame() {
   
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
+  gameState.turnStartTimeStamp = Date.now();
 
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
@@ -769,7 +774,6 @@ function updateHud() {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
   }
 
-  // BADGE DE IDENTIDAD DE CADA DISPOSITIVO
   const myIdentityBadge = document.getElementById("hudMyIdentityBadge");
   if (myIdentityBadge) {
     if (gameState.playerName) {
@@ -783,7 +787,6 @@ function updateHud() {
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  // SELECCIÓN DETERMINÍSTICA E IDENTICA DEL JUGADOR EN TURNO EN TODOS LOS DISPOSITIVOS
   const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
   let activePlayerName = "";
   
@@ -797,7 +800,6 @@ function updateHud() {
   const playerValEl = document.getElementById("hudActiveTurnPlayer");
   if (playerValEl) playerValEl.textContent = activePlayerName;
   
-  // COMPROBACÓN DE SI ES TU TURNO EXACTO DE JUGAR
   const myTurnAlertBanner = document.getElementById("myTurnAlertBanner");
   const playerBox = document.getElementById("hudCardPlayerBox");
   const subtextEl = document.getElementById("hudTurnPlayerSubtext");
@@ -827,38 +829,55 @@ function updateHud() {
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
 }
 
+/* ==========================================================================
+   ⏱️ SISTEMA DE TEMPORIZADOR UNIFICADO Y SINCRONIZADO EN TIEMPO REAL
+   ========================================================================== */
 function startTurnTimer() {
   if (gameState.turnTimerInterval) clearInterval(gameState.turnTimerInterval);
-  gameState.turnTimeLeft = 60;
-  gameState.turnStartTime = Date.now();
+  if (!gameState.turnStartTimeStamp) gameState.turnStartTimeStamp = Date.now();
+
+  gameState.lastTickedSecond = -1;
   updateTimerUI();
 
   gameState.turnTimerInterval = setInterval(() => {
-    gameState.turnTimeLeft--;
+    if (!gameState.turnStartTimeStamp || gameState.isGameOver || !gameState.isGameStarted) return;
+
+    const elapsedSec = Math.floor((Date.now() - gameState.turnStartTimeStamp) / 1000);
+    const remaining = Math.max(0, 60 - elapsedSec);
+    gameState.turnTimeLeft = remaining;
+
     updateTimerUI();
 
-    if (gameState.turnTimeLeft <= 5 && gameState.turnTimeLeft > 0) {
+    if (remaining <= 5 && remaining > 0 && elapsedSec !== gameState.lastTickedSecond) {
+      gameState.lastTickedSecond = elapsedSec;
       playSynthSound('tick');
     }
 
-    if (gameState.turnTimeLeft <= 0) {
+    if (remaining <= 0) {
       clearInterval(gameState.turnTimerInterval);
-      handleTurnTimeout();
+      
+      // Únicamente la pantalla maestra del profesor o el cliente activo dispara el cambio por tiempo agotado
+      if (gameState.userRole === 'teacher') {
+        handleTurnTimeout();
+      }
     }
-  }, 1000);
+  }, 400);
 }
 
 function recordTurnTime() {
-  if (gameState.turnStartTime > 0) {
-    const elapsedSec = Math.max(1, Math.round((Date.now() - gameState.turnStartTime) / 1000));
+  if (gameState.turnStartTimeStamp > 0) {
+    const elapsedSec = Math.max(1, Math.round((Date.now() - gameState.turnStartTimeStamp) / 1000));
     gameState.turnTimesList.push(elapsedSec);
   }
 }
 
 function updateTimerUI() {
-  document.getElementById("hudTurnTimer").textContent = `${gameState.turnTimeLeft}s`;
-  const pct = (gameState.turnTimeLeft / 60) * 100;
+  const timerValEl = document.getElementById("hudTurnTimer");
   const fill = document.getElementById("hudTimerFill");
+  if (!timerValEl || !fill) return;
+
+  timerValEl.textContent = `${gameState.turnTimeLeft}s`;
+  const pct = (gameState.turnTimeLeft / 60) * 100;
   fill.style.width = `${pct}%`;
 
   if (gameState.turnTimeLeft <= 5) {
@@ -1023,7 +1042,6 @@ function handleSlotClick(slotIndex) {
 
   renderTimelineTable();
   renderTeamHand();
-  broadcastGameState();
 
   setTimeout(() => {
     const track = document.getElementById("timelineTrack");
@@ -1058,6 +1076,9 @@ function advanceTurnOrEvaluateRound() {
   const activeTeamsList = gameState.isTieBreakMode 
     ? gameState.tieBreakTeamIndices 
     : Array.from({ length: gameState.numTeams }, (_, i) => i);
+
+  // REINICIO AUTOMÁTICO DE TEMPORIZADOR UNIFICADO PARA CADA NUEVA TARJETA / TURNO
+  gameState.turnStartTimeStamp = Date.now();
 
   if (gameState.currentRoundTurnCount < activeTeamsList.length) {
     const currentPosInList = activeTeamsList.indexOf(gameState.currentTurnTeamIndex);
