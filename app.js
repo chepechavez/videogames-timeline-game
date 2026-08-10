@@ -134,7 +134,8 @@ let gameState = {
   lastTickedSecond: -1,
   turnTimesList: [],
   
-  uniqueCardsSeen: new Set(),
+  // REGISTRO SERIALIZABLE DE CARTAS REVELADAS EN LA PARTIDA
+  uniqueCardsSeenIds: [],
   
   totalTurnsPlayed: 0,
   totalRoundsCompleted: 1,
@@ -149,6 +150,14 @@ let gameState = {
   isTie: false,
   isGameStarted: false
 };
+
+// HELPER PARA REGISTRAR CARTAS REVELADAS (MESA + MANOS + DECK)
+function trackCardSeen(cardId) {
+  if (!gameState.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = [];
+  if (!gameState.uniqueCardsSeenIds.includes(cardId)) {
+    gameState.uniqueCardsSeenIds.push(cardId);
+  }
+}
 
 // AUDIO SYNTHESIZER
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -364,7 +373,8 @@ function teacherStartMatchForAllStudents() {
         joinedStudents: gameState.joinedStudents,
         numTeams: gameState.numTeams,
         initialCardsPerTeam: gameState.initialCardsPerTeam,
-        turnStartTimeStamp: gameState.turnStartTimeStamp
+        turnStartTimeStamp: gameState.turnStartTimeStamp,
+        uniqueCardsSeenIds: gameState.uniqueCardsSeenIds
       }
     });
   }
@@ -381,6 +391,7 @@ function handleIncomingStartGame(data) {
   if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
   if (data.numTeams) gameState.numTeams = data.numTeams;
   if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
+  if (data.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = data.uniqueCardsSeenIds;
 
   closeAllModals();
   updateHud();
@@ -411,6 +422,7 @@ function broadcastGameState() {
         tieBreakTeamIndices: gameState.tieBreakTeamIndices,
         joinedStudents: gameState.joinedStudents,
         turnStartTimeStamp: gameState.turnStartTimeStamp,
+        uniqueCardsSeenIds: gameState.uniqueCardsSeenIds,
         isGameOver: gameState.isGameOver,
         winnerTeamIndex: gameState.winnerTeamIndex,
         isTie: gameState.isTie
@@ -441,8 +453,8 @@ function syncIncomingGameState(data) {
   if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
   if (data.totalTurnsPlayed !== undefined) gameState.totalTurnsPlayed = data.totalTurnsPlayed;
   if (data.totalRoundsCompleted !== undefined) gameState.totalRoundsCompleted = data.totalRoundsCompleted;
+  if (data.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = data.uniqueCardsSeenIds;
 
-  // VERIFICACIÓN DE FIN DE PARTIDA SINCRONIZADA EN TODOS LOS DISPOSITIVOS
   if (data.isGameOver && !gameState.isGameOver) {
     gameState.isGameOver = true;
     gameState.winnerTeamIndex = data.winnerTeamIndex;
@@ -754,7 +766,7 @@ function initNewGame() {
   gameState.selectedHandCardId = null;
   
   gameState.turnTimesList = [];
-  gameState.uniqueCardsSeen = new Set();
+  gameState.uniqueCardsSeenIds = [];
   
   gameState.totalTurnsPlayed = 0;
   gameState.totalRoundsCompleted = 1;
@@ -770,14 +782,14 @@ function initNewGame() {
 
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
-  gameState.uniqueCardsSeen.add(anchorCard.id);
+  trackCardSeen(anchorCard.id);
 
   for (let t = 0; t < gameState.numTeams; t++) {
     for (let c = 0; c < gameState.initialCardsPerTeam; c++) {
       if (gameState.reserveDeck.length > 0) {
         const card = gameState.reserveDeck.pop();
         gameState.teamHands[t].push(card);
-        gameState.uniqueCardsSeen.add(card.id);
+        trackCardSeen(card.id);
       }
     }
   }
@@ -885,7 +897,6 @@ function startTurnTimer() {
     if (remaining <= 0) {
       clearInterval(gameState.turnTimerInterval);
       
-      // Únicamente la pantalla maestra del profesor dispara el cambio por tiempo agotado
       if (gameState.userRole === 'teacher') {
         handleTurnTimeout();
       }
@@ -1006,7 +1017,6 @@ function renderTeamHand() {
 function handleSlotClick(slotIndex) {
   if (gameState.isGameOver) return;
 
-  // VALIDACIÓN ESTRICTA DE TURNO EN MULTIJUGADOR ONLINE (EVITA DOBLE TURNO O MOVIMIENTOS FUERA DE TURNO)
   if (gameState.gameMode === 'online' && gameState.userRole === 'student') {
     if (gameState.userTeamId !== gameState.currentTurnTeamIndex) {
       alert(`⚠️ ¡Aún no es tu turno! Es el turno de ${ALL_TEAMS[gameState.currentTurnTeamIndex].name}.`);
@@ -1078,7 +1088,7 @@ function handleSlotClick(slotIndex) {
     if (gameState.reserveDeck.length > 0) {
       const newCard = gameState.reserveDeck.pop();
       activeHand.push(newCard);
-      gameState.uniqueCardsSeen.add(newCard.id);
+      trackCardSeen(newCard.id);
     }
 
     gameState.selectedHandCardId = null;
@@ -1136,7 +1146,6 @@ function advanceTurnOrEvaluateRound() {
     return;
   }
 
-  // FINAL DE RONDA COMPLETA
   gameState.currentRoundTurnCount = 0;
   gameState.totalRoundsCompleted++;
 
@@ -1158,7 +1167,7 @@ function advanceTurnOrEvaluateRound() {
       if (gameState.reserveDeck.length > 0) {
         const tieCard = gameState.reserveDeck.pop();
         gameState.teamHands[t].push(tieCard);
-        gameState.uniqueCardsSeen.add(tieCard.id);
+        trackCardSeen(tieCard.id);
       }
     });
 
@@ -1302,8 +1311,14 @@ function renderTeacherDashboard() {
       : `● Máximo 60s por turno`;
   }
 
+  // CÁLCULO 100% PRECISO DE CARTAS ORDENADAS VS TOTAL REVELADAS CON SERIALIZACIÓN ARRAY
   const cardsInTableCount = gameState.tableCards.length;
-  const totalRevealedCount = gameState.uniqueCardsSeen ? gameState.uniqueCardsSeen.size : cardsInTableCount;
+  const uniqueSeenCount = (gameState.uniqueCardsSeenIds && gameState.uniqueCardsSeenIds.length > 0)
+    ? gameState.uniqueCardsSeenIds.length
+    : (1 + (gameState.numTeams * gameState.initialCardsPerTeam));
+
+  const totalRevealedCount = Math.max(cardsInTableCount, uniqueSeenCount);
+
   document.getElementById("kpiCardsInTable").textContent = `${cardsInTableCount}`;
   const kpiCardsInTableMeta = document.getElementById("kpiCardsInTableMeta");
   if (kpiCardsInTableMeta) {
