@@ -236,7 +236,7 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* GAME ARENA & TEAM HUD (BEM: .game-view) */
+/* GAME ARENA & TEAM HUD */
 .game-hud {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -349,6 +349,8 @@ body {
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 0.8rem;
+  flex-wrap: wrap;
+  gap: 0.8rem;
 }
 
 .timeline-table__title {
@@ -359,6 +361,33 @@ body {
   letter-spacing: 1px;
 }
 
+.timeline-table__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-arrow-btn {
+  background: rgba(0, 243, 255, 0.1);
+  border: 1px solid var(--color-neon-cyan);
+  color: var(--color-neon-cyan);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.nav-arrow-btn:hover {
+  background: var(--color-neon-cyan);
+  color: #000;
+  box-shadow: var(--shadow-cyan-glow);
+}
+
 .timeline-table__scroll-area {
   display: flex;
   align-items: center;
@@ -367,20 +396,55 @@ body {
   padding: 1.5rem 0.5rem;
   scrollbar-width: thin;
   scrollbar-color: var(--color-neon-cyan) rgba(0, 0, 0, 0.3);
+  scroll-behavior: smooth;
+  cursor: grab;
+}
+
+.timeline-table__scroll-area:active {
+  cursor: grabbing;
 }
 
 .timeline-table__scroll-area::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
+}
+
+.timeline-table__scroll-area::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 5px;
 }
 
 .timeline-table__scroll-area::-webkit-scrollbar-thumb {
   background: var(--color-neon-cyan);
-  border-radius: 4px;
+  border-radius: 5px;
+  box-shadow: var(--shadow-cyan-glow);
+}
+
+/* COMPACT MODE STYLES WHEN TIMELINE HAS MANY CARDS */
+.timeline-table__scroll-area--compact .timeline-card {
+  width: 110px;
+  min-width: 110px;
+  height: 180px;
+  padding: 0.5rem;
+}
+
+.timeline-table__scroll-area--compact .timeline-card__image-container {
+  height: 60px;
+}
+
+.timeline-table__scroll-area--compact .timeline-card__title {
+  font-size: 0.65rem;
+  -webkit-line-clamp: 2;
+}
+
+.timeline-table__scroll-area--compact .insertion-slot {
+  min-width: 40px;
+  height: 160px;
+  font-size: 1.1rem;
 }
 
 /* INSERTION SLOT ([ + ] BUTTONS BETWEEN CARDS) */
 .insertion-slot {
-  min-width: 50px;
+  min-width: 55px;
   height: 220px;
   border: 2px dashed var(--color-neon-cyan);
   border-radius: var(--radius-md);
@@ -389,7 +453,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: rgba(0, 243, 255, 0.05);
+  background: rgba(0, 243, 255, 0.08);
   color: var(--color-neon-cyan);
   font-family: var(--font-heading);
   font-size: 1.4rem;
@@ -401,10 +465,10 @@ body {
 }
 
 .insertion-slot:hover {
-  background: rgba(0, 243, 255, 0.2);
+  background: rgba(0, 243, 255, 0.25);
   border-color: var(--color-neon-yellow);
   color: var(--color-neon-yellow);
-  transform: scale(1.08);
+  transform: scale(1.1);
   box-shadow: var(--shadow-yellow-glow);
 }
 
@@ -480,7 +544,7 @@ body {
   overflow: hidden;
 }
 
-/* TEAM HAND CARDS (TEAM HAND) */
+/* TEAM HAND CARDS */
 .team-hand {
   background: var(--color-bg-card);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -567,7 +631,7 @@ body {
   border-radius: 4px;
 }
 
-/* TEAM CHAT BOX (BEM: .chat-box) */
+/* TEAM CHAT BOX */
 .chat-box {
   background: var(--color-bg-surface);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -642,8 +706,7 @@ body {
   color: #000;
   border: none;
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
+  width: 34px; height: 34px;
   cursor: pointer;
   font-weight: bold;
   display: flex;
@@ -782,7 +845,6 @@ body {
   animation: blink 1.2s infinite;
 }
 
-/* KPI CARDS GRID */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

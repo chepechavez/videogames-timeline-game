@@ -111,10 +111,21 @@
           <!-- TIMELINE CENTRAL TABLE -->
           <div class="timeline-table">
             <div class="timeline-table__header">
-              <span class="timeline-table__title">📍 LÍNEA DE TIEMPO EN LA MESA</span>
-              <span style="font-size: 0.8rem; color: var(--color-text-muted);">
-                Selecciona una carta de tu mano y haz clic en un slot <strong style="color: var(--color-neon-cyan);">[ + ]</strong> para ubicarla
-              </span>
+              <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                <span class="timeline-table__title">📍 LÍNEA DE TIEMPO EN LA MESA</span>
+                <span style="font-size: 0.8rem; color: var(--color-text-muted);">
+                  Selecciona una carta de tu mano y haz clic en un slot <strong style="color: var(--color-neon-cyan);">[ + ]</strong> para ubicarla
+                </span>
+              </div>
+
+              <!-- CONTROLES DE NAVEGACIÓN DE LA LÍNEA DE TIEMPO -->
+              <div class="timeline-table__controls">
+                <button class="btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.75rem;" onclick="toggleCompactTimelineView()" title="Alternar entre vista amplia y compacta de cartas">
+                  🔍 Vista Compacta
+                </button>
+                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(-350)" title="Deslizar línea de tiempo a la izquierda">◀</button>
+                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(350)" title="Deslizar línea de tiempo a la derecha">▶</button>
+              </div>
             </div>
 
             <!-- Scrollable insertion track -->
@@ -290,7 +301,7 @@
     </p>
   </footer>
 
-  <!-- MODAL 1: STUDENT REGISTRATION (ONLY NAME + ROOM CODE) -->
+  <!-- MODAL 1: STUDENT REGISTRATION -->
   <div class="modal-overlay modal-overlay--active" id="modalStudentRegister">
     <div class="modal">
       <h2 class="modal__title">🕹️ UNIRSE A LA PARTIDA DE TIMELINE</h2>

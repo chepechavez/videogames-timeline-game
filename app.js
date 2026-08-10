@@ -85,7 +85,6 @@ const HISTORICAL_EVENTS = [
   { id: 74, year: 2024, title: "Astro Bot (Homenaje a PlayStation)", desc: "Astro Bot es aclamado mundialmente como el juego de plataformas del año en homenaje al gaming.", image: "https://www.museumofplay.org/app/uploads/2025/08/Video-game-2024-384x497.jpg" }
 ];
 
-// EQUIPOS CONFIGURADOS
 const ALL_TEAMS = [
   { id: 0, name: "Equipo Alfa", color: "var(--color-neon-pink)", icon: "🔴" },
   { id: 1, name: "Equipo Beta", color: "var(--color-neon-cyan)", icon: "🔵" },
@@ -96,17 +95,17 @@ const ALL_TEAMS = [
 // STATE MANAGEMENT
 let gameState = {
   gameMode: "projector", // "projector", "multitab", "online"
-  numTeams: 4,           // 2, 3 or 4 teams
-  initialCardsPerTeam: 4, // 4 teams -> 4, 3 teams -> 5, 2 teams -> 6
+  numTeams: 4,
+  initialCardsPerTeam: 4,
+  isCompactView: false,
   
   playerName: "",
   userTeamId: 0,
   roomCode: "AULA-101",
-  
-  joinedStudents: [],    // [{ name, teamId }, ...]
+  joinedStudents: [],
   
   reserveDeck: [],
-  tableCards: [],        // [{ id, year, title, desc, image }, ...]
+  tableCards: [],
   
   teamHands: { 0: [], 1: [], 2: [], 3: [] },
   teamStats: {
@@ -128,7 +127,7 @@ let gameState = {
   isGameOver: false
 };
 
-// AUDIO SYNTHESIZER CON SONIDO TICKING (5s a 0s) Y BUZZER
+// AUDIO SYNTHESIZER
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playSynthSound(type) {
@@ -140,7 +139,6 @@ function playSynthSound(type) {
   const now = audioCtx.currentTime;
 
   if (type === 'tick') {
-    // Ticking sound for 5s..1s
     osc.type = 'sine';
     osc.frequency.setValueAtTime(800, now);
     gain.gain.setValueAtTime(0.08, now);
@@ -218,6 +216,7 @@ function launchConfetti() {
 document.addEventListener("DOMContentLoaded", () => {
   renderTeacherDashboard();
   setInterval(renderTeacherDashboard, 5000);
+  setupTimelineScrollWheel();
 });
 
 function switchView(viewName) {
@@ -240,7 +239,6 @@ function switchView(viewName) {
   }
 }
 
-// ⚙️ SELECCIÓN DE MODO DE JUEGO
 function selectGameMode(mode) {
   gameState.gameMode = mode;
   document.getElementById("btnModeProjector").className = mode === 'projector' ? "mode-btn mode-btn--active" : "mode-btn";
@@ -260,8 +258,39 @@ function selectGameMode(mode) {
   }
 }
 
+// ↕️ CONVERSIÓN DE WHEEL MOUSE A SCROLL HORIZONTAL
+function setupTimelineScrollWheel() {
+  const track = document.getElementById("timelineTrack");
+  if (!track) return;
+  track.addEventListener("wheel", (e) => {
+    if (e.deltaY !== 0) {
+      track.scrollLeft += e.deltaY * 1.5;
+      e.preventDefault();
+    }
+  });
+}
+
+function scrollTimelineTrack(distance) {
+  const track = document.getElementById("timelineTrack");
+  if (track) {
+    track.scrollBy({ left: distance, behavior: 'smooth' });
+  }
+}
+
+function toggleCompactTimelineView() {
+  gameState.isCompactView = !gameState.isCompactView;
+  const track = document.getElementById("timelineTrack");
+  if (track) {
+    if (gameState.isCompactView) {
+      track.classList.add("timeline-table__scroll-area--compact");
+    } else {
+      track.classList.remove("timeline-table__scroll-area--compact");
+    }
+  }
+}
+
 /* ==========================================================================
-   GAMEPLAY ENGINE - TIMELINE BOARD GAME
+   GAMEPLAY ENGINE
    ========================================================================== */
 
 function handleStartGame(e) {
@@ -270,14 +299,11 @@ function handleStartGame(e) {
   if (!name) return;
 
   gameState.playerName = name;
-
-  // Asignación aleatoria equitativa entre los equipos configurados
   const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
   gameState.userTeamId = assignedTeamIndex;
   gameState.joinedStudents.push({ name, teamId: assignedTeamIndex });
 
   document.getElementById("modalStudentRegister").classList.remove("modal-overlay--active");
-
   initNewGame();
 }
 
@@ -289,10 +315,6 @@ function handleTeacherStartGame() {
   const numTeams = parseInt(document.getElementById("selectNumTeams").value, 10);
   gameState.numTeams = numTeams;
 
-  // 📐 TAMAÑO DE MANO DINÁMICO SEGÚN NÚMERO DE EQUIPOS:
-  // 4 Equipos -> 4 cartas
-  // 3 Equipos -> 5 cartas
-  // 2 Equipos -> 6 cartas
   if (numTeams === 2) gameState.initialCardsPerTeam = 6;
   else if (numTeams === 3) gameState.initialCardsPerTeam = 5;
   else gameState.initialCardsPerTeam = 4;
@@ -312,16 +334,14 @@ function initNewGame() {
     3: { correct: 0, errors: 0, attempts: 0 }
   };
   gameState.cardErrorTracker = {};
-  gameState.currentTurnTeamIndex = Math.floor(Math.random() * gameState.numTeams); // Aleatorio inicial
+  gameState.currentTurnTeamIndex = Math.floor(Math.random() * gameState.numTeams);
   gameState.selectedHandCardId = null;
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
 
-  // 1. ANCLA INICIAL DE LA MESA: 1 carta con la FECHA VISIBLE
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
 
-  // 2. MANO INICIAL SEGÚN NÚMERO DE EQUIPOS
   for (let t = 0; t < gameState.numTeams; t++) {
     for (let c = 0; c < gameState.initialCardsPerTeam; c++) {
       if (gameState.reserveDeck.length > 0) {
@@ -345,7 +365,6 @@ function shuffleArray(arr) {
 }
 
 function updateHud() {
-  // En MODO PROYECTOR DE AULA (1 pantalla), el equipo activo para interacción es SIEMPRE el que posee el turno
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
   }
@@ -360,7 +379,6 @@ function updateHud() {
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
 }
 
-// ⏱️ TEMPORIZADOR DE TURNO DE 1 MINUTO CON TICKING DE 5s A 0s
 function startTurnTimer() {
   if (gameState.turnTimerInterval) clearInterval(gameState.turnTimerInterval);
   gameState.turnTimeLeft = 60;
@@ -370,7 +388,6 @@ function startTurnTimer() {
     gameState.turnTimeLeft--;
     updateTimerUI();
 
-    // Ticking sonoro a partir de los 5 segundos finales (5, 4, 3, 2, 1)
     if (gameState.turnTimeLeft <= 5 && gameState.turnTimeLeft > 0) {
       playSynthSound('tick');
     }
@@ -402,9 +419,6 @@ function handleTurnTimeout() {
   advanceTurn();
 }
 
-/* ==========================================================================
-   MESA CENTRAL CON PUNTOS DE INSERCIÓN [ + ]
-   ========================================================================== */
 function renderTimelineTable() {
   const track = document.getElementById("timelineTrack");
   track.innerHTML = "";
@@ -444,9 +458,6 @@ function renderTimelineTable() {
   document.getElementById("kpiCardsInTable").textContent = count;
 }
 
-/* ==========================================================================
-   MANO DEL EQUIPO ACTIVO
-   ========================================================================== */
 function renderTeamHand() {
   const grid = document.getElementById("teamHandGrid");
   grid.innerHTML = "";
@@ -482,9 +493,6 @@ function renderTeamHand() {
   });
 }
 
-/* ==========================================================================
-   INSERCIÓN DE CARTA Y VALIDACIÓN CRONOLÓGICA
-   ========================================================================== */
 function handleSlotClick(slotIndex) {
   if (gameState.isGameOver) return;
   if (!gameState.selectedHandCardId) {
@@ -528,8 +536,6 @@ function handleSlotClick(slotIndex) {
     addChatMessage("🤖 Sistema", `¡ACIERTO! ${ALL_TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente.`);
 
   } else {
-    // 💡 REGLA DE ERROR CONFIRMADA:
-    // La carta equivocada vuelve al mazo de reserva en una posición aleatoria y se roba 1 nueva (diferente)
     playSynthSound('error');
     gameState.teamStats[activeTeamIndex].errors++;
     gameState.teamStreaks[activeTeamIndex] = 0;
@@ -551,6 +557,15 @@ function handleSlotClick(slotIndex) {
 
   renderTimelineTable();
   renderTeamHand();
+
+  // Scroll automático hacia la posición insertada
+  setTimeout(() => {
+    const track = document.getElementById("timelineTrack");
+    if (track) {
+      const scrollPos = (slotIndex / (table.length + 1)) * track.scrollWidth;
+      track.scrollTo({ left: scrollPos - 200, behavior: 'smooth' });
+    }
+  }, 100);
 
   checkEndGameOrAdvanceTurn();
 }
@@ -603,7 +618,6 @@ function checkEndGameOrAdvanceTurn() {
   }
 }
 
-// 🔄 ROTACIÓN SECUENCIAL ESTRICTA DE TURNOS POR RONDA
 function advanceTurn() {
   gameState.currentTurnTeamIndex = (gameState.currentTurnTeamIndex + 1) % gameState.numTeams;
   updateHud();
@@ -611,9 +625,6 @@ function advanceTurn() {
   startTurnTimer();
 }
 
-/* ==========================================================================
-   CHAT DE EQUIPO EN VIVO
-   ========================================================================== */
 function handleSendChatMessage(e) {
   e.preventDefault();
   const input = document.getElementById("chatInput");
@@ -637,9 +648,6 @@ function addChatMessage(sender, text) {
   container.scrollTop = container.scrollHeight;
 }
 
-/* ==========================================================================
-   TEACHER DASHBOARD & HARDEST CARDS METRICS
-   ========================================================================== */
 function renderTeacherDashboard() {
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -678,7 +686,6 @@ function renderTeacherDashboard() {
     tbody.appendChild(tr);
   }
 
-  // Render Hardest Cards
   const hardestBody = document.getElementById("hardestCardsBody");
   if (!hardestBody) return;
   hardestBody.innerHTML = "";
@@ -706,7 +713,6 @@ function renderTeacherDashboard() {
   }
 }
 
-// 🧪 SIMULACIÓN DE TURNO DE AULA CORREGIDA (Actúa sobre el equipo del turno activo)
 function simulateStudentSubmission() {
   if (gameState.isGameOver) return;
   const activeTeamIndex = gameState.currentTurnTeamIndex;
