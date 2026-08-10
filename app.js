@@ -137,6 +137,7 @@ let gameState = {
   uniqueCardsSeen: new Set(),
   
   totalTurnsPlayed: 0,
+  totalRoundsCompleted: 1,
   currentRoundTurnCount: 0,
   isTieBreakMode: false,
   tieBreakTeamIndices: [],
@@ -144,6 +145,8 @@ let gameState = {
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
   isGameOver: false,
+  winnerTeamIndex: null,
+  isTie: false,
   isGameStarted: false
 };
 
@@ -342,6 +345,9 @@ function handleIncomingRosterSync(data) {
 
 function teacherStartMatchForAllStudents() {
   gameState.isGameStarted = true;
+  gameState.isGameOver = false;
+  gameState.winnerTeamIndex = null;
+  gameState.isTie = false;
   gameState.turnStartTimeStamp = Date.now();
   initNewGame();
   closeAllModals();
@@ -366,6 +372,9 @@ function teacherStartMatchForAllStudents() {
 
 function handleIncomingStartGame(data) {
   gameState.isGameStarted = true;
+  gameState.isGameOver = false;
+  gameState.winnerTeamIndex = null;
+  gameState.isTie = false;
   if (data.tableCards) gameState.tableCards = data.tableCards;
   if (data.teamHands) gameState.teamHands = data.teamHands;
   if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
@@ -396,11 +405,15 @@ function broadcastGameState() {
         teamStats: gameState.teamStats,
         cardErrorTracker: gameState.cardErrorTracker,
         totalTurnsPlayed: gameState.totalTurnsPlayed,
+        totalRoundsCompleted: gameState.totalRoundsCompleted,
         currentRoundTurnCount: gameState.currentRoundTurnCount,
         isTieBreakMode: gameState.isTieBreakMode,
         tieBreakTeamIndices: gameState.tieBreakTeamIndices,
         joinedStudents: gameState.joinedStudents,
-        turnStartTimeStamp: gameState.turnStartTimeStamp
+        turnStartTimeStamp: gameState.turnStartTimeStamp,
+        isGameOver: gameState.isGameOver,
+        winnerTeamIndex: gameState.winnerTeamIndex,
+        isTie: gameState.isTie
       }
     });
   }
@@ -426,12 +439,25 @@ function syncIncomingGameState(data) {
   if (data.cardErrorTracker) gameState.cardErrorTracker = data.cardErrorTracker;
   if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
   if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
+  if (data.totalTurnsPlayed !== undefined) gameState.totalTurnsPlayed = data.totalTurnsPlayed;
+  if (data.totalRoundsCompleted !== undefined) gameState.totalRoundsCompleted = data.totalRoundsCompleted;
+
+  // VERIFICACIÓN DE FIN DE PARTIDA SINCRONIZADA EN TODOS LOS DISPOSITIVOS
+  if (data.isGameOver && !gameState.isGameOver) {
+    gameState.isGameOver = true;
+    gameState.winnerTeamIndex = data.winnerTeamIndex;
+    gameState.isTie = data.isTie;
+    clearInterval(gameState.turnTimerInterval);
+    showGameOverModal(data.winnerTeamIndex, data.isTie);
+  }
 
   updateHud();
   renderTimelineTable();
   renderTeamHand();
   renderTeacherDashboard();
-  startTurnTimer();
+  if (!gameState.isGameOver) {
+    startTurnTimer();
+  }
 }
 
 /* ==========================================================================
@@ -731,12 +757,15 @@ function initNewGame() {
   gameState.uniqueCardsSeen = new Set();
   
   gameState.totalTurnsPlayed = 0;
+  gameState.totalRoundsCompleted = 1;
   gameState.currentRoundTurnCount = 0;
   gameState.isTieBreakMode = false;
   gameState.tieBreakTeamIndices = [];
   
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
+  gameState.winnerTeamIndex = null;
+  gameState.isTie = false;
   gameState.turnStartTimeStamp = Date.now();
 
   const anchorCard = gameState.reserveDeck.pop();
@@ -769,6 +798,15 @@ function shuffleArray(arr) {
   return arr;
 }
 
+function getActiveRepresentativeName() {
+  const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
+  if (activeTeamMembers.length > 0) {
+    const repIndex = (gameState.totalTurnsPlayed || 0) % activeTeamMembers.length;
+    return activeTeamMembers[repIndex].name;
+  }
+  return `Representante ${ALL_TEAMS[gameState.currentTurnTeamIndex].name}`;
+}
+
 function updateHud() {
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
@@ -787,16 +825,7 @@ function updateHud() {
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
-  let activePlayerName = "";
-  
-  if (activeTeamMembers.length > 0) {
-    const repIndex = (gameState.totalTurnsPlayed || 0) % activeTeamMembers.length;
-    activePlayerName = activeTeamMembers[repIndex].name;
-  } else {
-    activePlayerName = `Representante ${currentTeam.name}`;
-  }
-
+  const activePlayerName = getActiveRepresentativeName();
   const playerValEl = document.getElementById("hudActiveTurnPlayer");
   if (playerValEl) playerValEl.textContent = activePlayerName;
   
@@ -856,7 +885,7 @@ function startTurnTimer() {
     if (remaining <= 0) {
       clearInterval(gameState.turnTimerInterval);
       
-      // Únicamente la pantalla maestra del profesor o el cliente activo dispara el cambio por tiempo agotado
+      // Únicamente la pantalla maestra del profesor dispara el cambio por tiempo agotado
       if (gameState.userRole === 'teacher') {
         handleTurnTimeout();
       }
@@ -888,6 +917,7 @@ function updateTimerUI() {
 }
 
 function handleTurnTimeout() {
+  if (gameState.isGameOver) return;
   playSynthSound('error');
   recordTurnTime();
 
@@ -975,6 +1005,21 @@ function renderTeamHand() {
 
 function handleSlotClick(slotIndex) {
   if (gameState.isGameOver) return;
+
+  // VALIDACIÓN ESTRICTA DE TURNO EN MULTIJUGADOR ONLINE (EVITA DOBLE TURNO O MOVIMIENTOS FUERA DE TURNO)
+  if (gameState.gameMode === 'online' && gameState.userRole === 'student') {
+    if (gameState.userTeamId !== gameState.currentTurnTeamIndex) {
+      alert(`⚠️ ¡Aún no es tu turno! Es el turno de ${ALL_TEAMS[gameState.currentTurnTeamIndex].name}.`);
+      return;
+    }
+
+    const activePlayerName = getActiveRepresentativeName();
+    if (gameState.playerName && gameState.playerName.toLowerCase() !== activePlayerName.toLowerCase()) {
+      alert(`⚠️ ¡Es el turno de tu compañero de equipo ${activePlayerName} para realizar el tiro!`);
+      return;
+    }
+  }
+
   if (!gameState.selectedHandCardId) {
     alert("¡Selecciona primero una carta de tu mano antes de hacer clic en un slot [+]!");
     return;
@@ -1077,7 +1122,6 @@ function advanceTurnOrEvaluateRound() {
     ? gameState.tieBreakTeamIndices 
     : Array.from({ length: gameState.numTeams }, (_, i) => i);
 
-  // REINICIO AUTOMÁTICO DE TEMPORIZADOR UNIFICADO PARA CADA NUEVA TARJETA / TURNO
   gameState.turnStartTimeStamp = Date.now();
 
   if (gameState.currentRoundTurnCount < activeTeamsList.length) {
@@ -1092,7 +1136,10 @@ function advanceTurnOrEvaluateRound() {
     return;
   }
 
+  // FINAL DE RONDA COMPLETA
   gameState.currentRoundTurnCount = 0;
+  gameState.totalRoundsCompleted++;
+
   const zeroCardTeams = activeTeamsList.filter(t => gameState.teamHands[t].length === 0);
 
   if (zeroCardTeams.length === 1) {
@@ -1142,36 +1189,29 @@ function advanceTurnOrEvaluateRound() {
 
 function declareWinner(winnerTeamIndex) {
   gameState.isGameOver = true;
+  gameState.winnerTeamIndex = winnerTeamIndex;
+  gameState.isTie = false;
+
   clearInterval(gameState.turnTimerInterval);
-
-  const winner = ALL_TEAMS[winnerTeamIndex];
-  playSynthSound('victory');
-
-  let totalAttempts = 0;
-  let totalCorrect = 0;
-  for (let t = 0; t < gameState.numTeams; t++) {
-    totalAttempts += gameState.teamStats[t].attempts;
-    totalCorrect += gameState.teamStats[t].correct;
-  }
-  const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
-  const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
-
-  document.getElementById("diagTitle").textContent = `🏆 ¡${winner.name.toUpperCase()} HA GANADO LA PARTIDA!`;
-  
-  const diagAccEl = document.getElementById("diagAccuracy");
-  if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
-
-  const diagRoundsEl = document.getElementById("diagRounds");
-  if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
-
-  document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
+  showGameOverModal(winnerTeamIndex, false);
   sendWebhookTelemetry();
   broadcastGameState();
 }
 
 function declareTie(tiedTeamIndices) {
   gameState.isGameOver = true;
+  gameState.winnerTeamIndex = null;
+  gameState.isTie = true;
+
   clearInterval(gameState.turnTimerInterval);
+  showGameOverModal(null, true, tiedTeamIndices);
+  sendWebhookTelemetry();
+  broadcastGameState();
+}
+
+function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = []) {
+  playSynthSound('victory');
+  launchConfetti();
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -1180,20 +1220,24 @@ function declareTie(tiedTeamIndices) {
     totalCorrect += gameState.teamStats[t].correct;
   }
   const globalAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
-  const totalRoundsCount = Math.ceil(gameState.totalTurnsPlayed / gameState.numTeams);
 
-  const names = tiedTeamIndices.map(t => ALL_TEAMS[t].name).join(" y ");
-  document.getElementById("diagTitle").textContent = `⚖️ ¡EMPATE OFICIAL ENTRE ${names.toUpperCase()}!`;
-  
   const diagAccEl = document.getElementById("diagAccuracy");
   if (diagAccEl) diagAccEl.textContent = `${globalAccuracy}%`;
 
   const diagRoundsEl = document.getElementById("diagRounds");
-  if (diagRoundsEl) diagRoundsEl.textContent = `${totalRoundsCount}`;
+  if (diagRoundsEl) diagRoundsEl.textContent = `${gameState.totalRoundsCompleted}`;
+
+  if (isTie) {
+    const names = tiedTeamIndices && tiedTeamIndices.length > 0
+      ? tiedTeamIndices.map(t => ALL_TEAMS[t].name).join(" y ")
+      : "LOS EQUIPOS EN DESEMPATE";
+    document.getElementById("diagTitle").textContent = `⚖️ ¡EMPATE OFICIAL ENTRE ${names.toUpperCase()}!`;
+  } else if (winnerTeamIndex !== null && winnerTeamIndex !== undefined) {
+    const winner = ALL_TEAMS[winnerTeamIndex];
+    document.getElementById("diagTitle").textContent = `🏆 ¡${winner.name.toUpperCase()} HA GANADO LA PARTIDA!`;
+  }
 
   document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
-  sendWebhookTelemetry();
-  broadcastGameState();
 }
 
 function handleSendChatMessage(e) {
