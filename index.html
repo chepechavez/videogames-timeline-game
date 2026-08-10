@@ -15,13 +15,13 @@
 </head>
 <body>
 
-  <!-- CRT Visual Overlay (Toggleable Retro Arcade Effect) -->
+  <!-- CRT Visual Overlay -->
   <div class="crt-overlay" id="crtOverlay"></div>
 
   <!-- CANVAS FOR CONFETTI PARTICLES -->
   <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999;"></canvas>
 
-  <!-- STREAK OVERLAY POPUP (DOBLE HIT, TRIPLE HIT, MONSTER KILL) -->
+  <!-- STREAK OVERLAY POPUP -->
   <div class="streak-overlay" id="streakOverlay"></div>
 
   <!-- APPLICATION HEADER & NAVIGATION (BEM: .app-header) -->
@@ -48,6 +48,26 @@
   <!-- MAIN APPLICATION CONTAINER -->
   <main class="app-body">
 
+    <!-- GAME MODE SELECTOR BAR -->
+    <div class="mode-selector-bar">
+      <div class="mode-selector-bar__title">
+        <span>⚙️ MODO DE JUEGO:</span>
+        <span id="currentModeLabel" style="color: #fff; font-weight: bold;">📺 Proyector de Aula (1 Pantalla)</span>
+      </div>
+
+      <div class="mode-btn-group">
+        <button class="mode-btn mode-btn--active" id="btnModeProjector" onclick="selectGameMode('projector')">
+          📺 Proyector (1 Pantalla)
+        </button>
+        <button class="mode-btn" id="btnModeMultiTab" onclick="selectGameMode('multitab')">
+          💻 Local (Multi-pestaña)
+        </button>
+        <button class="mode-btn" id="btnModeOnline" onclick="selectGameMode('online')">
+          📱 Multijugador Online (Celulares)
+        </button>
+      </div>
+    </div>
+
     <!-- VIEW 1: STUDENT TIMELINE GAME (BEM: .game-view) -->
     <section class="view-section view-section--active" id="studentView">
       
@@ -56,15 +76,15 @@
         <div class="hud-card hud-card--team">
           <span class="hud-card__icon">🛡️</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Tu Equipo / Jugador</span>
-            <span class="hud-card__value" id="hudTeamName">Equipo Alfa</span>
+            <span class="hud-card__label">Equipo en Turno</span>
+            <span class="hud-card__value" id="hudTeamName">Equipo Alfa 🔴</span>
           </div>
         </div>
 
         <div class="hud-card hud-card--turn">
           <span class="hud-card__icon">🎲</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Turno Actual (Representante)</span>
+            <span class="hud-card__label">Representante Activo</span>
             <span class="hud-card__value" id="hudActiveTurn">Jugador...</span>
           </div>
         </div>
@@ -88,7 +108,7 @@
         
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           
-          <!-- TIMELINE CENTRAL TABLE (MESA DE CARTAS COLOCADAS) -->
+          <!-- TIMELINE CENTRAL TABLE -->
           <div class="timeline-table">
             <div class="timeline-table__header">
               <span class="timeline-table__title">📍 LÍNEA DE TIEMPO EN LA MESA</span>
@@ -99,19 +119,19 @@
 
             <!-- Scrollable insertion track -->
             <div class="timeline-table__scroll-area" id="timelineTrack">
-              <!-- Dynamically populated insertion slots [+] and timeline cards -->
+              <!-- Dynamically populated insertion slots [+] and cards -->
             </div>
           </div>
 
-          <!-- TEAM HAND CARDS (MANO DEL EQUIPO - 4 CARTAS OCULTAS) -->
+          <!-- TEAM HAND CARDS -->
           <div class="team-hand">
             <div class="team-hand__title">
-              <span>🎴 CARTAS EN MANO DE TU EQUIPO</span>
+              <span>🎴 CARTAS EN MANO DEL EQUIPO EN TURNO</span>
               <span style="font-size: 0.8rem; font-weight: normal; color: var(--color-text-muted);" id="handCountLabel">4 cartas restantes</span>
             </div>
 
             <div class="team-hand__cards-grid" id="teamHandGrid">
-              <!-- Dynamically populated cards in hand -->
+              <!-- Dynamically populated -->
             </div>
           </div>
 
@@ -151,15 +171,13 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 1rem;">
-            <!-- Live HTTP Polling Pulse Indicator -->
             <div class="live-indicator">
               <span class="live-indicator__dot"></span>
               <span>EN VIVO - Actualizando...</span>
             </div>
 
-            <!-- Demo Simulation Button for Classrooms -->
-            <button class="btn-secondary" onclick="simulateStudentSubmission()" title="Simula el envío automático de un turno para probar la telemetría en vivo">
-              🧪 Simular Turno de Aula
+            <button class="btn-primary" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openTeacherRoomModal()">
+              ⚙️ Configurar Sala de Clase
             </button>
           </div>
         </div>
@@ -168,12 +186,12 @@
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-card__header">
-              <span class="kpi-card__title">Equipos / Jugadores</span>
+              <span class="kpi-card__title">Equipos Activos</span>
               <span class="kpi-card__icon">👥</span>
             </div>
             <div class="kpi-card__value" id="kpiActiveStudents">4 Equipos</div>
             <div class="kpi-card__meta">
-              <span>● Sincronizados en sesión</span>
+              <span>● Cartas por mano según número de equipos</span>
             </div>
           </div>
 
@@ -206,7 +224,7 @@
             </div>
             <div class="kpi-card__value" id="kpiCardsInTable">1</div>
             <div class="kpi-card__meta">
-              <span>● Eventos cronológicos</span>
+              <span>● Eventos ordenados</span>
             </div>
           </div>
         </div>
@@ -214,7 +232,6 @@
         <!-- METRICS SECTION: LEADERBOARD + HARDEST CARDS -->
         <div class="metrics-section">
           
-          <!-- LEADERBOARD BY TEAM EFFECTIVENESS -->
           <div class="leaderboard-card">
             <div class="leaderboard-card__title">
               <span>🏆 LEADERBOARD DE EQUIPOS</span>
@@ -235,7 +252,6 @@
             </table>
           </div>
 
-          <!-- HARDEST CARDS (MOST ERROR-PRONE EVENTS) -->
           <div class="leaderboard-card">
             <div class="leaderboard-card__title">
               <span>🔥 CARTAS MÁS DIFÍCILES (MAYOR ÍNDICE DE ERROR)</span>
@@ -274,11 +290,11 @@
     </p>
   </footer>
 
-  <!-- MODAL 1: STUDENT REGISTRATION & TEAM SELECTION -->
+  <!-- MODAL 1: STUDENT REGISTRATION (ONLY NAME + ROOM CODE) -->
   <div class="modal-overlay modal-overlay--active" id="modalStudentRegister">
     <div class="modal">
-      <h2 class="modal__title">🕹️ REGISTRO DE JUGADOR DE TIMELINE</h2>
-      <p class="modal__subtitle">Ingresa tu nombre y selecciona tu equipo para la partida:</p>
+      <h2 class="modal__title">🕹️ UNIRSE A LA PARTIDA DE TIMELINE</h2>
+      <p class="modal__subtitle">Ingresa tu nombre para ser asignado equitativamente a un equipo:</p>
 
       <form id="studentRegisterForm" onsubmit="handleStartGame(event)">
         <div class="form-group">
@@ -286,35 +302,59 @@
           <input type="text" id="inputStudentName" class="form-group__input" placeholder="Ej: Alex Mercer" required>
         </div>
 
-        <div class="form-group">
-          <label class="form-group__label" for="inputStudentId">ID / Código de Estudiante:</label>
-          <input type="text" id="inputStudentId" class="form-group__input" placeholder="Ej: EST-9482" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-group__label" for="selectTeam">Selecciona tu Equipo:</label>
-          <select id="selectTeam" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;">
-            <option value="0">Equipo Alfa 🔴</option>
-            <option value="1">Equipo Beta 🔵</option>
-            <option value="2">Equipo Gamma 🟡</option>
-            <option value="3">Equipo Delta 🟢</option>
-          </select>
+        <div class="form-group" id="roomCodeGroup" style="display: none;">
+          <label class="form-group__label" for="inputRoomCode">Código de Sala (Profesor):</label>
+          <input type="text" id="inputRoomCode" class="form-group__input" placeholder="Ej: AULA-101" value="AULA-101">
         </div>
 
         <button type="submit" class="btn-primary" style="margin-top: 1rem;">
-          ¡UNIRSE A LA PARTIDA! 🚀
+          ¡COMENZAR A JUGAR! 🚀
         </button>
       </form>
     </div>
   </div>
 
-  <!-- MODAL 2: DIAGNOSTIC & GAME OVER SUMMARY -->
+  <!-- MODAL 2: TEACHER ROOM SETUP & LOBBY MODAL -->
+  <div class="modal-overlay" id="modalTeacherRoom">
+    <div class="modal" style="max-width: 600px;">
+      <h2 class="modal__title">⚙️ CONFIGURACIÓN DE SALA DOCENTE</h2>
+      <p class="modal__subtitle">Elige el número de equipos y genera el código para tus estudiantes:</p>
+
+      <div class="form-group">
+        <label class="form-group__label" for="selectNumTeams">Número de Equipos en Clase:</label>
+        <select id="selectNumTeams" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;">
+          <option value="4">4 Equipos (4 cartas por mano)</option>
+          <option value="3">3 Equipos (5 cartas por mano)</option>
+          <option value="2">2 Equipos (6 cartas por mano)</option>
+        </select>
+      </div>
+
+      <div class="lobby-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-family: var(--font-heading); color: var(--color-neon-cyan);">CÓDIGO DE SALA:</span>
+          <span class="room-badge" id="lobbyRoomCode">AULA-101</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+          Los estudiantes que ingresen con este código serán asignados <strong>aleatoria y equitativamente</strong> entre los equipos.
+        </p>
+
+        <div class="lobby-teams-grid" id="lobbyTeamsGrid">
+          <!-- Dynamically filled with joined students per team -->
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="handleTeacherStartGame()">
+        🚀 ¡INICIAR PARTIDA EN VIVO EN AULA!
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: DIAGNOSTIC & GAME OVER SUMMARY -->
   <div class="modal-overlay" id="modalDiagnostic">
     <div class="modal" style="max-width: 600px;">
       <h2 class="modal__title" id="diagTitle">🏆 ¡PARTIDA FINALIZADA!</h2>
-      <p class="modal__subtitle" id="diagWinnerSubtitle">El Equipo Alfa ha logrado colocar su última carta correctamente.</p>
+      <p class="modal__subtitle" id="diagWinnerSubtitle">Un equipo ha logrado colocar su última carta correctamente.</p>
 
-      <!-- Diagnostic Metrics Grid -->
       <div class="diagnostic-grid">
         <div class="diagnostic-box">
           <span class="diagnostic-box__label">Efectividad Global</span>
@@ -327,7 +367,6 @@
         </div>
       </div>
 
-      <!-- Experience & Performance Summary -->
       <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; text-align: center;">
         <p style="font-size: 0.9rem; color: var(--color-text-main);" id="diagFeedbackMessage">
           ¡Extraordinario trabajo en equipo y estrategia cronológica!

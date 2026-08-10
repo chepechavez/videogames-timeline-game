@@ -86,26 +86,29 @@ const HISTORICAL_EVENTS = [
 ];
 
 // EQUIPOS CONFIGURADOS
-const TEAMS = [
+const ALL_TEAMS = [
   { id: 0, name: "Equipo Alfa", color: "var(--color-neon-pink)", icon: "🔴" },
   { id: 1, name: "Equipo Beta", color: "var(--color-neon-cyan)", icon: "🔵" },
   { id: 2, name: "Equipo Gamma", color: "var(--color-neon-yellow)", icon: "🟡" },
   { id: 3, name: "Equipo Delta", color: "var(--color-neon-green)", icon: "🟢" }
 ];
 
-// STATE MANAGEMENT FOR TIMELINE MULTIPLAYER GAME
+// STATE MANAGEMENT
 let gameState = {
+  gameMode: "projector", // "projector", "multitab", "online"
+  numTeams: 4,           // 2, 3 or 4 teams
+  initialCardsPerTeam: 4, // 4 teams -> 4, 3 teams -> 5, 2 teams -> 6
+  
   playerName: "",
-  playerId: "",
   userTeamId: 0,
+  roomCode: "AULA-101",
+  
+  joinedStudents: [],    // [{ name, teamId }, ...]
   
   reserveDeck: [],
-  tableCards: [], // [{ id, year, title, desc, image }, ...] sorted chronologically
+  tableCards: [],        // [{ id, year, title, desc, image }, ...]
   
-  teamHands: {
-    0: [], 1: [], 2: [], 3: []
-  },
-  
+  teamHands: { 0: [], 1: [], 2: [], 3: [] },
   teamStats: {
     0: { correct: 0, errors: 0, attempts: 0 },
     1: { correct: 0, errors: 0, attempts: 0 },
@@ -113,10 +116,8 @@ let gameState = {
     3: { correct: 0, errors: 0, attempts: 0 }
   },
 
-  cardErrorTracker: {}, // cardId -> count of failed attempts
-  
+  cardErrorTracker: {},
   currentTurnTeamIndex: 0,
-  activeRepresentativeName: "",
   selectedHandCardId: null,
   
   turnTimeLeft: 60,
@@ -127,7 +128,7 @@ let gameState = {
   isGameOver: false
 };
 
-// AUDIO SYNTHESIZER
+// AUDIO SYNTHESIZER CON SONIDO TICKING (5s a 0s) Y BUZZER
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playSynthSound(type) {
@@ -138,7 +139,15 @@ function playSynthSound(type) {
   gain.connect(audioCtx.destination);
   const now = audioCtx.currentTime;
 
-  if (type === 'success') {
+  if (type === 'tick') {
+    // Ticking sound for 5s..1s
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  } else if (type === 'success') {
     osc.type = 'square';
     osc.frequency.setValueAtTime(523.25, now);
     osc.frequency.setValueAtTime(659.25, now + 0.08);
@@ -150,8 +159,8 @@ function playSynthSound(type) {
     osc.stop(now + 0.4);
   } else if (type === 'error') {
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.setValueAtTime(180, now + 0.12);
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.setValueAtTime(140, now + 0.15);
     gain.gain.setValueAtTime(0.2, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
     osc.start(now);
@@ -169,54 +178,37 @@ function playSynthSound(type) {
   }
 }
 
-// CONFETTI SYSTEM NATIVO CON CANVAS
 function launchConfetti() {
   const canvas = document.getElementById("confettiCanvas");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-
   const particles = [];
   const colors = ['#00f3ff', '#ff0055', '#ffea00', '#00ff66', '#9d00ff'];
 
   for (let i = 0; i < 80; i++) {
     particles.push({
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      vx: (Math.random() - 0.5) * 16,
-      vy: (Math.random() - 0.8) * 16,
-      size: Math.random() * 8 + 4,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      alpha: 1
+      x: canvas.width / 2, y: canvas.height / 2,
+      vx: (Math.random() - 0.5) * 16, vy: (Math.random() - 0.8) * 16,
+      size: Math.random() * 8 + 4, color: colors[Math.floor(Math.random() * colors.length)], alpha: 1
     });
   }
 
   function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let active = false;
-
     particles.forEach(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.3; // Gravity
-      p.alpha -= 0.015;
-
+      p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.alpha -= 0.015;
       if (p.alpha > 0) {
         active = true;
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
         ctx.fillRect(p.x, p.y, p.size, p.size);
       }
     });
-
-    if (active) {
-      requestAnimationFrame(render);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    if (active) requestAnimationFrame(render);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
-
   render();
 }
 
@@ -248,6 +240,26 @@ function switchView(viewName) {
   }
 }
 
+// ⚙️ SELECCIÓN DE MODO DE JUEGO
+function selectGameMode(mode) {
+  gameState.gameMode = mode;
+  document.getElementById("btnModeProjector").className = mode === 'projector' ? "mode-btn mode-btn--active" : "mode-btn";
+  document.getElementById("btnModeMultiTab").className = mode === 'multitab' ? "mode-btn mode-btn--active" : "mode-btn";
+  document.getElementById("btnModeOnline").className = mode === 'online' ? "mode-btn mode-btn--active" : "mode-btn";
+
+  const roomGroup = document.getElementById("roomCodeGroup");
+  if (mode === 'projector') {
+    document.getElementById("currentModeLabel").textContent = "📺 Proyector de Aula (1 Pantalla)";
+    if (roomGroup) roomGroup.style.display = "none";
+  } else if (mode === 'multitab') {
+    document.getElementById("currentModeLabel").textContent = "💻 Local (Multi-pestaña)";
+    if (roomGroup) roomGroup.style.display = "none";
+  } else {
+    document.getElementById("currentModeLabel").textContent = "📱 Multijugador Online (Celulares)";
+    if (roomGroup) roomGroup.style.display = "flex";
+  }
+}
+
 /* ==========================================================================
    GAMEPLAY ENGINE - TIMELINE BOARD GAME
    ========================================================================== */
@@ -255,18 +267,37 @@ function switchView(viewName) {
 function handleStartGame(e) {
   e.preventDefault();
   const name = document.getElementById("inputStudentName").value.trim();
-  const id = document.getElementById("inputStudentId").value.trim();
-  const teamId = parseInt(document.getElementById("selectTeam").value, 10);
-
-  if (!name || !id) return;
+  if (!name) return;
 
   gameState.playerName = name;
-  gameState.playerId = id;
-  gameState.userTeamId = teamId;
+
+  // Asignación aleatoria equitativa entre los equipos configurados
+  const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
+  gameState.userTeamId = assignedTeamIndex;
+  gameState.joinedStudents.push({ name, teamId: assignedTeamIndex });
 
   document.getElementById("modalStudentRegister").classList.remove("modal-overlay--active");
 
-  // Initialize Game State
+  initNewGame();
+}
+
+function openTeacherRoomModal() {
+  document.getElementById("modalTeacherRoom").classList.add("modal-overlay--active");
+}
+
+function handleTeacherStartGame() {
+  const numTeams = parseInt(document.getElementById("selectNumTeams").value, 10);
+  gameState.numTeams = numTeams;
+
+  // 📐 TAMAÑO DE MANO DINÁMICO SEGÚN NÚMERO DE EQUIPOS:
+  // 4 Equipos -> 4 cartas
+  // 3 Equipos -> 5 cartas
+  // 2 Equipos -> 6 cartas
+  if (numTeams === 2) gameState.initialCardsPerTeam = 6;
+  else if (numTeams === 3) gameState.initialCardsPerTeam = 5;
+  else gameState.initialCardsPerTeam = 4;
+
+  document.getElementById("modalTeacherRoom").classList.remove("modal-overlay--active");
   initNewGame();
 }
 
@@ -281,7 +312,7 @@ function initNewGame() {
     3: { correct: 0, errors: 0, attempts: 0 }
   };
   gameState.cardErrorTracker = {};
-  gameState.currentTurnTeamIndex = Math.floor(Math.random() * 4); // Random starting team
+  gameState.currentTurnTeamIndex = Math.floor(Math.random() * gameState.numTeams); // Aleatorio inicial
   gameState.selectedHandCardId = null;
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
@@ -290,17 +321,14 @@ function initNewGame() {
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
 
-  // 2. MANO INICIAL: 4 cartas a cada uno de los 4 equipos
-  for (let t = 0; t < 4; t++) {
-    for (let c = 0; c < 4; c++) {
+  // 2. MANO INICIAL SEGÚN NÚMERO DE EQUIPOS
+  for (let t = 0; t < gameState.numTeams; t++) {
+    for (let c = 0; c < gameState.initialCardsPerTeam; c++) {
       if (gameState.reserveDeck.length > 0) {
         gameState.teamHands[t].push(gameState.reserveDeck.pop());
       }
     }
   }
-
-  // Representative Name for HUD
-  gameState.activeRepresentativeName = `${gameState.playerName} (${TEAMS[gameState.userTeamId].name})`;
 
   updateHud();
   renderTimelineTable();
@@ -317,17 +345,22 @@ function shuffleArray(arr) {
 }
 
 function updateHud() {
-  const userTeam = TEAMS[gameState.userTeamId];
+  // En MODO PROYECTOR DE AULA (1 pantalla), el equipo activo para interacción es SIEMPRE el que posee el turno
+  if (gameState.gameMode === 'projector') {
+    gameState.userTeamId = gameState.currentTurnTeamIndex;
+  }
+
+  const userTeam = ALL_TEAMS[gameState.userTeamId];
   document.getElementById("hudTeamName").textContent = `${userTeam.icon} ${userTeam.name}`;
   
-  const currentTeam = TEAMS[gameState.currentTurnTeamIndex];
+  const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudActiveTurn").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  const currentHand = gameState.teamHands[gameState.userTeamId];
-  document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano`;
+  const currentHand = gameState.teamHands[gameState.userTeamId] || [];
+  document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
 }
 
-// ⏱️ TEMPORIZADOR DE TURNO DE 1 MINUTO (60 SEGUNDOS)
+// ⏱️ TEMPORIZADOR DE TURNO DE 1 MINUTO CON TICKING DE 5s A 0s
 function startTurnTimer() {
   if (gameState.turnTimerInterval) clearInterval(gameState.turnTimerInterval);
   gameState.turnTimeLeft = 60;
@@ -336,6 +369,11 @@ function startTurnTimer() {
   gameState.turnTimerInterval = setInterval(() => {
     gameState.turnTimeLeft--;
     updateTimerUI();
+
+    // Ticking sonoro a partir de los 5 segundos finales (5, 4, 3, 2, 1)
+    if (gameState.turnTimeLeft <= 5 && gameState.turnTimeLeft > 0) {
+      playSynthSound('tick');
+    }
 
     if (gameState.turnTimeLeft <= 0) {
       clearInterval(gameState.turnTimerInterval);
@@ -347,12 +385,19 @@ function startTurnTimer() {
 function updateTimerUI() {
   document.getElementById("hudTurnTimer").textContent = `${gameState.turnTimeLeft}s`;
   const pct = (gameState.turnTimeLeft / 60) * 100;
-  document.getElementById("hudTimerFill").style.width = `${pct}%`;
+  const fill = document.getElementById("hudTimerFill");
+  fill.style.width = `${pct}%`;
+
+  if (gameState.turnTimeLeft <= 5) {
+    fill.classList.add("timer-bar__fill--critical");
+  } else {
+    fill.classList.remove("timer-bar__fill--critical");
+  }
 }
 
 function handleTurnTimeout() {
   playSynthSound('error');
-  addChatMessage("🤖 Sistema", `¡Tiempo agotado (1 min)! ${TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
+  addChatMessage("🤖 Sistema", `⏱️ ¡Tiempo agotado (60s)! ${ALL_TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
   gameState.teamStreaks[gameState.currentTurnTeamIndex] = 0;
   advanceTurn();
 }
@@ -367,7 +412,6 @@ function renderTimelineTable() {
   const count = gameState.tableCards.length;
 
   for (let i = 0; i <= count; i++) {
-    // 1. Insertion Slot [+]
     const slot = document.createElement("div");
     slot.className = "insertion-slot";
     slot.dataset.slotIndex = i;
@@ -381,7 +425,6 @@ function renderTimelineTable() {
     slot.addEventListener("click", () => handleSlotClick(i));
     track.appendChild(slot);
 
-    // 2. Timeline Card (if i < count)
     if (i < count) {
       const card = gameState.tableCards[i];
       const cardEl = document.createElement("div");
@@ -402,16 +445,16 @@ function renderTimelineTable() {
 }
 
 /* ==========================================================================
-   MANO DEL EQUIPO (4 CARTAS CON CARA OCULTA)
+   MANO DEL EQUIPO ACTIVO
    ========================================================================== */
 function renderTeamHand() {
   const grid = document.getElementById("teamHandGrid");
   grid.innerHTML = "";
 
-  const hand = gameState.teamHands[gameState.userTeamId];
+  const hand = gameState.teamHands[gameState.userTeamId] || [];
 
   if (hand.length === 0) {
-    grid.innerHTML = `<div style="color: var(--color-neon-green); font-family: var(--font-heading);">¡Mano vacía! Tu equipo ha liberado todas sus cartas.</div>`;
+    grid.innerHTML = `<div style="color: var(--color-neon-green); font-family: var(--font-heading); padding: 1rem;">¡Mano vacía! Este equipo ha liberado todas sus cartas.</div>`;
     return;
   }
 
@@ -458,10 +501,6 @@ function handleSlotClick(slotIndex) {
   const cardToPlace = activeHand[cardIndexInHand];
   gameState.teamStats[activeTeamIndex].attempts++;
 
-  // VALIDACIÓN DE POSICIÓN CORRECTA ENTRE SLOTS
-  // slotIndex === 0: debe ser <= table[0].year
-  // slotIndex === count: debe ser >= table[count-1].year
-  // 0 < slotIndex < count: debe ser table[slotIndex-1].year <= card.year && card.year <= table[slotIndex].year
   const table = gameState.tableCards;
   const count = table.length;
 
@@ -475,53 +514,44 @@ function handleSlotClick(slotIndex) {
   }
 
   if (isCorrect) {
-    // ACIERTO: La carta se queda en la mesa en su posición correcta
     playSynthSound('success');
     launchConfetti();
     gameState.teamStats[activeTeamIndex].correct++;
     gameState.teamStreaks[activeTeamIndex]++;
 
-    // Remover de la mano
     activeHand.splice(cardIndexInHand, 1);
     gameState.selectedHandCardId = null;
 
-    // Insertar en la mesa
     gameState.tableCards.splice(slotIndex, 0, cardToPlace);
-
-    // Verificar rachas arcade
     triggerStreakOverlay(gameState.teamStreaks[activeTeamIndex]);
 
-    addChatMessage("🤖 Sistema", `¡ACIERTO! ${TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente.`);
+    addChatMessage("🤖 Sistema", `¡ACIERTO! ${ALL_TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente.`);
 
   } else {
-    // FALLO: La carta errónea vuelve al mazo de reserva, se roba 1 nueva
+    // 💡 REGLA DE ERROR CONFIRMADA:
+    // La carta equivocada vuelve al mazo de reserva en una posición aleatoria y se roba 1 nueva (diferente)
     playSynthSound('error');
     gameState.teamStats[activeTeamIndex].errors++;
     gameState.teamStreaks[activeTeamIndex] = 0;
 
-    // Incrementar tracker de error de la carta
     gameState.cardErrorTracker[cardToPlace.id] = (gameState.cardErrorTracker[cardToPlace.id] || 0) + 1;
 
-    // Retornar a mazo de reserva
     activeHand.splice(cardIndexInHand, 1);
     gameState.reserveDeck.push(cardToPlace);
     gameState.reserveDeck = shuffleArray(gameState.reserveDeck);
 
-    // Robar 1 nueva carta (diferente)
     if (gameState.reserveDeck.length > 0) {
       const newCard = gameState.reserveDeck.pop();
       activeHand.push(newCard);
     }
 
     gameState.selectedHandCardId = null;
-    addChatMessage("🤖 Sistema", `❌ FALLO. ${TEAMS[activeTeamIndex].name} erró el año de '${cardToPlace.title}' (${cardToPlace.year}). La carta volvió al mazo y robaron una nueva.`);
+    addChatMessage("🤖 Sistema", `❌ FALLO. ${ALL_TEAMS[activeTeamIndex].name} erró la fecha de '${cardToPlace.title}' (${cardToPlace.year}). La carta volvió al mazo y robaron una nueva.`);
   }
 
-  // Renderizar estado de mesa y mano
   renderTimelineTable();
   renderTeamHand();
 
-  // Verificar condición de victoria al terminar el turno
   checkEndGameOrAdvanceTurn();
 }
 
@@ -544,41 +574,40 @@ function triggerStreakOverlay(streakCount) {
 }
 
 function checkEndGameOrAdvanceTurn() {
-  // Verificar si algún equipo se quedó sin cartas (0 en mano)
   const winningTeams = [];
-  for (let t = 0; t < 4; t++) {
+  for (let t = 0; t < gameState.numTeams; t++) {
     if (gameState.teamHands[t].length === 0) {
       winningTeams.push(t);
     }
   }
 
   if (winningTeams.length > 0) {
-    // Fin del juego o desempate
     gameState.isGameOver = true;
     clearInterval(gameState.turnTimerInterval);
 
     let winnerText = "";
     if (winningTeams.length === 1) {
-      const winner = TEAMS[winningTeams[0]];
+      const winner = ALL_TEAMS[winningTeams[0]];
       winnerText = `🏆 ¡${winner.name} HA GANADO LA PARTIDA!`;
       playSynthSound('victory');
     } else {
-      winnerText = `⚖️ ¡EMPATE entre ${winningTeams.map(t => TEAMS[t].name).join(", ")}!`;
+      winnerText = `⚖️ ¡EMPATE entre ${winningTeams.map(t => ALL_TEAMS[t].name).join(", ")}!`;
     }
 
     document.getElementById("diagTitle").textContent = winnerText;
     document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
 
-    // Telemetría JSON
     sendWebhookTelemetry();
   } else {
     advanceTurn();
   }
 }
 
+// 🔄 ROTACIÓN SECUENCIAL ESTRICTA DE TURNOS POR RONDA
 function advanceTurn() {
-  gameState.currentTurnTeamIndex = (gameState.currentTurnTeamIndex + 1) % 4;
+  gameState.currentTurnTeamIndex = (gameState.currentTurnTeamIndex + 1) % gameState.numTeams;
   updateHud();
+  renderTeamHand();
   startTurnTimer();
 }
 
@@ -591,7 +620,7 @@ function handleSendChatMessage(e) {
   const msgText = input.value.trim();
   if (!msgText) return;
 
-  const sender = `${gameState.playerName} (${TEAMS[gameState.userTeamId].name})`;
+  const sender = `${gameState.playerName} (${ALL_TEAMS[gameState.userTeamId].name})`;
   addChatMessage(sender, msgText);
   input.value = "";
 }
@@ -615,22 +644,23 @@ function renderTeacherDashboard() {
   let totalAttempts = 0;
   let totalCorrect = 0;
 
-  for (let t = 0; t < 4; t++) {
+  for (let t = 0; t < gameState.numTeams; t++) {
     totalAttempts += gameState.teamStats[t].attempts;
     totalCorrect += gameState.teamStats[t].correct;
   }
 
   const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
   document.getElementById("kpiAvgAccuracy").textContent = `${overallAccuracy}%`;
+  document.getElementById("kpiActiveStudents").textContent = `${gameState.numTeams} Equipos`;
 
-  // Render Leaderboard
   const tbody = document.getElementById("leaderboardBody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  TEAMS.forEach(team => {
-    const stats = gameState.teamStats[team.id];
-    const handCount = gameState.teamHands[team.id].length;
+  for (let t = 0; t < gameState.numTeams; t++) {
+    const team = ALL_TEAMS[t];
+    const stats = gameState.teamStats[t];
+    const handCount = gameState.teamHands[t].length;
     const eff = stats.attempts > 0 ? Math.round((stats.correct / stats.attempts) * 100) : 0;
 
     const tr = document.createElement("tr");
@@ -646,9 +676,9 @@ function renderTeacherDashboard() {
       </td>
     `;
     tbody.appendChild(tr);
-  });
+  }
 
-  // Render Hardest Cards (Most Error-Prone Events)
+  // Render Hardest Cards
   const hardestBody = document.getElementById("hardestCardsBody");
   if (!hardestBody) return;
   hardestBody.innerHTML = "";
@@ -676,21 +706,20 @@ function renderTeacherDashboard() {
   }
 }
 
-// SIMULATOR BUTTON FOR CLASSROOM DEMOS
+// 🧪 SIMULACIÓN DE TURNO DE AULA CORREGIDA (Actúa sobre el equipo del turno activo)
 function simulateStudentSubmission() {
   if (gameState.isGameOver) return;
-  const mockTeamIndex = Math.floor(Math.random() * 4);
+  const activeTeamIndex = gameState.currentTurnTeamIndex;
+  const activeHand = gameState.teamHands[activeTeamIndex];
+  if (!activeHand || activeHand.length === 0) return;
+
   const slots = gameState.tableCards.length + 1;
   const randomSlot = Math.floor(Math.random() * slots);
 
-  if (gameState.teamHands[mockTeamIndex].length > 0) {
-    gameState.selectedHandCardId = gameState.teamHands[mockTeamIndex][0].id;
-    gameState.currentTurnTeamIndex = mockTeamIndex;
-    handleSlotClick(randomSlot);
-  }
+  gameState.selectedHandCardId = activeHand[0].id;
+  handleSlotClick(randomSlot);
 }
 
-// ASYNC FETCH POST TO WEBHOOK_URL
 async function sendWebhookTelemetry() {
   if (!WEBHOOK_URL) return;
   const payload = {
@@ -707,7 +736,7 @@ async function sendWebhookTelemetry() {
       body: JSON.stringify(payload)
     });
   } catch (e) {
-    console.warn("Webhook no disponible. Telemetría guardada localmente.");
+    console.warn("Webhook no disponible.");
   }
 }
 
