@@ -117,8 +117,14 @@ let gameState = {
   currentTurnTeamIndex: 0,
   selectedHandCardId: null,
   
+  // MEDICIÓN DE TIEMPO POR TURNO
   turnTimeLeft: 60,
   turnTimerInterval: null,
+  turnStartTime: 0,
+  turnTimesList: [], // Lista de tiempos (en segundos) por turno
+  
+  // REGISTRO DE CARTAS ÚNICAS REVELADAS
+  uniqueCardsSeen: new Set(),
   
   totalTurnsPlayed: 0,
   currentRoundTurnCount: 0,
@@ -218,7 +224,7 @@ function launchConfetti() {
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
   renderTeacherDashboard();
-  setInterval(renderTeacherDashboard, 5000);
+  setInterval(renderTeacherDashboard, 3000);
   setupTimelineScrollWheel();
 });
 
@@ -391,9 +397,6 @@ function closeViewTeamsModal() {
   document.getElementById("modalViewTeams").classList.remove("modal-overlay--active");
 }
 
-/* ==========================================================================
-   🔍 MODAL DE DETALLE HISTÓRICO DE CARTA (EVENTO EXTENDIDO)
-   ========================================================================== */
 function openCardDetailModal(cardId) {
   const eventObj = HISTORICAL_EVENTS.find(c => c.id === cardId);
   if (!eventObj) return;
@@ -443,7 +446,7 @@ function scrollTimelineTrack(distance) {
 }
 
 /* ==========================================================================
-   GAMEPLAY ENGINE
+   GAMEPLAY ENGINE & DYNAMIC METRICS TRACKER
    ========================================================================== */
 
 function initNewGame() {
@@ -460,6 +463,9 @@ function initNewGame() {
   gameState.currentTurnTeamIndex = 0;
   gameState.selectedHandCardId = null;
   
+  gameState.turnTimesList = [];
+  gameState.uniqueCardsSeen = new Set();
+  
   gameState.totalTurnsPlayed = 0;
   gameState.currentRoundTurnCount = 0;
   gameState.isTieBreakMode = false;
@@ -468,13 +474,18 @@ function initNewGame() {
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
 
+  // CARTA ANCLA INICIAL DE LA MESA
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
+  gameState.uniqueCardsSeen.add(anchorCard.id);
 
+  // REPARTIR MANOS SEGÚN NÚMERO DE EQUIPOS (2=6, 3=5, 4=4)
   for (let t = 0; t < gameState.numTeams; t++) {
     for (let c = 0; c < gameState.initialCardsPerTeam; c++) {
       if (gameState.reserveDeck.length > 0) {
-        gameState.teamHands[t].push(gameState.reserveDeck.pop());
+        const card = gameState.reserveDeck.pop();
+        gameState.teamHands[t].push(card);
+        gameState.uniqueCardsSeen.add(card.id);
       }
     }
   }
@@ -482,6 +493,7 @@ function initNewGame() {
   updateHud();
   renderTimelineTable();
   renderTeamHand();
+  renderTeacherDashboard();
   startTurnTimer();
 }
 
@@ -521,6 +533,7 @@ function updateHud() {
 function startTurnTimer() {
   if (gameState.turnTimerInterval) clearInterval(gameState.turnTimerInterval);
   gameState.turnTimeLeft = 60;
+  gameState.turnStartTime = Date.now();
   updateTimerUI();
 
   gameState.turnTimerInterval = setInterval(() => {
@@ -538,6 +551,13 @@ function startTurnTimer() {
   }, 1000);
 }
 
+function recordTurnTime() {
+  if (gameState.turnStartTime > 0) {
+    const elapsedSec = Math.max(1, Math.round((Date.now() - gameState.turnStartTime) / 1000));
+    gameState.turnTimesList.push(elapsedSec);
+  }
+}
+
 function updateTimerUI() {
   document.getElementById("hudTurnTimer").textContent = `${gameState.turnTimeLeft}s`;
   const pct = (gameState.turnTimeLeft / 60) * 100;
@@ -553,6 +573,8 @@ function updateTimerUI() {
 
 function handleTurnTimeout() {
   playSynthSound('error');
+  recordTurnTime();
+
   addChatMessage("🤖 Sistema", `⏱️ ¡Tiempo agotado (60s)! ${ALL_TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
   gameState.teamStreaks[gameState.currentTurnTeamIndex] = 0;
   gameState.totalTurnsPlayed++;
@@ -597,7 +619,7 @@ function renderTimelineTable() {
     }
   }
 
-  document.getElementById("kpiCardsInTable").textContent = count;
+  renderTeacherDashboard();
 }
 
 function renderTeamHand() {
@@ -641,6 +663,8 @@ function handleSlotClick(slotIndex) {
     alert("¡Selecciona primero una carta de tu mano antes de hacer clic en un slot [+]!");
     return;
   }
+
+  recordTurnTime();
 
   const activeTeamIndex = gameState.currentTurnTeamIndex;
   const activeHand = gameState.teamHands[activeTeamIndex];
@@ -693,6 +717,7 @@ function handleSlotClick(slotIndex) {
     if (gameState.reserveDeck.length > 0) {
       const newCard = gameState.reserveDeck.pop();
       activeHand.push(newCard);
+      gameState.uniqueCardsSeen.add(newCard.id);
     }
 
     gameState.selectedHandCardId = null;
@@ -764,7 +789,9 @@ function advanceTurnOrEvaluateRound() {
     let availableDeck = gameState.reserveDeck.length > 0;
     zeroCardTeams.forEach(t => {
       if (gameState.reserveDeck.length > 0) {
-        gameState.teamHands[t].push(gameState.reserveDeck.pop());
+        const tieCard = gameState.reserveDeck.pop();
+        gameState.teamHands[t].push(tieCard);
+        gameState.uniqueCardsSeen.add(tieCard.id);
       }
     });
 
@@ -869,19 +896,53 @@ function addChatMessage(sender, text) {
   container.scrollTop = container.scrollHeight;
 }
 
+/* ==========================================================================
+   📊 DASHBOARD CON MÉTRICAS Y KPIS DINÁMICOS
+   ========================================================================== */
 function renderTeacherDashboard() {
+  // KPI 1: EQUIPOS ACTIVOS Y CARTAS EN MANO
+  document.getElementById("kpiActiveStudents").textContent = `${gameState.numTeams} Equipos`;
+  const kpiCardsPerTeamMeta = document.getElementById("kpiCardsPerTeamMeta");
+  if (kpiCardsPerTeamMeta) {
+    kpiCardsPerTeamMeta.textContent = `● ${gameState.initialCardsPerTeam} cartas en mano por equipo`;
+  }
+
+  // KPI 2: EFECTIVIDAD GENERAL
   let totalAttempts = 0;
   let totalCorrect = 0;
-
   for (let t = 0; t < gameState.numTeams; t++) {
     totalAttempts += gameState.teamStats[t].attempts;
     totalCorrect += gameState.teamStats[t].correct;
   }
-
   const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
   document.getElementById("kpiAvgAccuracy").textContent = `${overallAccuracy}%`;
-  document.getElementById("kpiActiveStudents").textContent = `${gameState.numTeams} Equipos`;
 
+  // KPI 3: TIEMPO PROMEDIO VS MEJOR TIEMPO REGISTRADO
+  let avgTime = 0;
+  let bestTime = 0;
+  if (gameState.turnTimesList && gameState.turnTimesList.length > 0) {
+    const sumTime = gameState.turnTimesList.reduce((a, b) => a + b, 0);
+    avgTime = Math.round(sumTime / gameState.turnTimesList.length);
+    bestTime = Math.min(...gameState.turnTimesList);
+  }
+  document.getElementById("kpiAvgTime").textContent = `${avgTime}s`;
+  const kpiAvgTimeMeta = document.getElementById("kpiAvgTimeMeta");
+  if (kpiAvgTimeMeta) {
+    kpiAvgTimeMeta.textContent = gameState.turnTimesList && gameState.turnTimesList.length > 0
+      ? `● Mejor tiempo registrado: ${bestTime}s`
+      : `● Máximo 60s por turno`;
+  }
+
+  // KPI 4: CARTAS EN MESA VS TOTAL DE CARTAS DIVERSIFICADAS REVELADAS
+  const cardsInTableCount = gameState.tableCards.length;
+  const totalRevealedCount = gameState.uniqueCardsSeen ? gameState.uniqueCardsSeen.size : cardsInTableCount;
+  document.getElementById("kpiCardsInTable").textContent = `${cardsInTableCount}`;
+  const kpiCardsInTableMeta = document.getElementById("kpiCardsInTableMeta");
+  if (kpiCardsInTableMeta) {
+    kpiCardsInTableMeta.textContent = `● Ordenadas: ${cardsInTableCount} de ${totalRevealedCount} cartas reveladas`;
+  }
+
+  // TABLA DE LIDERAZGO POR EQUIPO
   const tbody = document.getElementById("leaderboardBody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -907,6 +968,7 @@ function renderTeacherDashboard() {
     tbody.appendChild(tr);
   }
 
+  // TABLA DE CARTAS MÁS DIFÍCILES
   const hardestBody = document.getElementById("hardestCardsBody");
   if (!hardestBody) return;
   hardestBody.innerHTML = "";

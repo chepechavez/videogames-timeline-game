@@ -206,6 +206,8 @@
 
         <!-- KPI CARDS GRID -->
         <div class="kpi-grid">
+          
+          <!-- KPI 1: EQUIPOS ACTIVOS & CARTAS EN MANO -->
           <div class="kpi-card">
             <div class="kpi-card__header">
               <span class="kpi-card__title">Equipos Activos</span>
@@ -213,10 +215,11 @@
             </div>
             <div class="kpi-card__value" id="kpiActiveStudents">4 Equipos</div>
             <div class="kpi-card__meta">
-              <span>● Cartas por mano según número de equipos</span>
+              <span id="kpiCardsPerTeamMeta">● 4 cartas por mano</span>
             </div>
           </div>
 
+          <!-- KPI 2: EFECTIVIDAD GENERAL -->
           <div class="kpi-card">
             <div class="kpi-card__header">
               <span class="kpi-card__title">Efectividad General</span>
@@ -228,6 +231,7 @@
             </div>
           </div>
 
+          <!-- KPI 3: TIEMPO PROMEDIO & MEJOR TIEMPO POR TURNO -->
           <div class="kpi-card">
             <div class="kpi-card__header">
               <span class="kpi-card__title">Tiempo Promedio / Turno</span>
@@ -235,10 +239,11 @@
             </div>
             <div class="kpi-card__value" id="kpiAvgTime">0s</div>
             <div class="kpi-card__meta">
-              <span>● Máximo 60s por turno</span>
+              <span id="kpiAvgTimeMeta">● Mejor tiempo: 0s</span>
             </div>
           </div>
 
+          <!-- KPI 4: CARTAS EN MESA VS TOTAL REVELADAS -->
           <div class="kpi-card">
             <div class="kpi-card__header">
               <span class="kpi-card__title">Cartas en Mesa</span>
@@ -246,7 +251,7 @@
             </div>
             <div class="kpi-card__value" id="kpiCardsInTable">1</div>
             <div class="kpi-card__meta">
-              <span>● Eventos ordenados</span>
+              <span id="kpiCardsInTableMeta">● Ordenadas: 1 de 17 cartas reveladas</span>
             </div>
           </div>
         </div>
