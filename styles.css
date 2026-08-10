@@ -236,38 +236,39 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* GAME ARENA & TEAM HUD */
+/* GAME ARENA & TEAM HUD (DISTINCT CLEAR BOXES) */
 .game-hud {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.2rem;
 }
 
 .hud-card {
   background: var(--color-bg-card);
-  border: 1px solid rgba(0, 243, 255, 0.2);
+  border: 1px solid rgba(0, 243, 255, 0.25);
   border-radius: var(--radius-md);
-  padding: 0.9rem 1.2rem;
+  padding: 1rem 1.2rem;
   display: flex;
   align-items: center;
   gap: 1rem;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 .hud-card::after {
   content: '';
   position: absolute;
-  top: 0; left: 0; width: 4px; height: 100%;
+  top: 0; left: 0; width: 5px; height: 100%;
   background: var(--color-neon-cyan);
 }
 
-.hud-card--timer::after { background: var(--color-neon-pink); }
-.hud-card--team::after { background: var(--color-neon-yellow); }
-.hud-card--turn::after { background: var(--color-neon-green); }
+.hud-card--team::after { background: var(--color-neon-pink); }
+.hud-card--player::after { background: var(--color-neon-cyan); }
+.hud-card--timer::after { background: var(--color-neon-yellow); }
 
 .hud-card__icon {
-  font-size: 1.8rem;
+  font-size: 2rem;
 }
 
 .hud-card__content {
@@ -280,14 +281,21 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--color-text-muted);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .hud-card__value {
   font-family: var(--font-heading);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #fff;
+  margin-top: 0.1rem;
+}
+
+.hud-card__subtext {
+  font-size: 0.75rem;
+  color: var(--color-neon-green);
+  font-weight: 500;
 }
 
 /* 60-SECOND TURN TIMER BAR */
@@ -329,28 +337,29 @@ body {
   }
 }
 
-/* TIMELINE CENTRAL TABLE (BEM: .timeline-table) */
+/* TIMELINE CENTRAL TABLE (NO TRUNCATION, FULL SCROLLING) */
 .timeline-table {
-  background: rgba(18, 20, 32, 0.85);
-  border: 2px solid rgba(0, 243, 255, 0.3);
+  background: rgba(18, 20, 32, 0.9);
+  border: 2px solid rgba(0, 243, 255, 0.4);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  min-height: 380px;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  gap: 1rem;
+  min-height: 400px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
   position: relative;
+  overflow: hidden; /* Prevents outer box overflow */
 }
 
 .timeline-table__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   padding-bottom: 0.8rem;
-  flex-wrap: wrap;
-  gap: 0.8rem;
+  width: 100%;
+  gap: 1rem;
 }
 
 .timeline-table__title {
@@ -365,20 +374,21 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .nav-arrow-btn {
-  background: rgba(0, 243, 255, 0.1);
+  background: rgba(0, 243, 255, 0.15);
   border: 1px solid var(--color-neon-cyan);
   color: var(--color-neon-cyan);
-  border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  font-size: 1rem;
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.3rem;
   transition: var(--transition-fast);
 }
 
@@ -388,47 +398,45 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
+/* SCROLL TRACK WITH PROPER PADDING SO LAST CARD/SLOT IS NEVER CUT OFF */
 .timeline-table__scroll-area {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  overflow-x: auto;
-  padding: 1.5rem 0.5rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-neon-cyan) rgba(0, 0, 0, 0.3);
+  overflow-x: scroll;
+  padding: 1.5rem 2rem 2rem 2rem; /* Generous padding right and left */
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-neon-cyan) rgba(0, 0, 0, 0.5);
   scroll-behavior: smooth;
-  cursor: grab;
-}
-
-.timeline-table__scroll-area:active {
-  cursor: grabbing;
+  width: 100%;
 }
 
 .timeline-table__scroll-area::-webkit-scrollbar {
-  height: 10px;
+  height: 12px;
 }
 
 .timeline-table__scroll-area::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .timeline-table__scroll-area::-webkit-scrollbar-thumb {
   background: var(--color-neon-cyan);
-  border-radius: 5px;
+  border-radius: 6px;
   box-shadow: var(--shadow-cyan-glow);
 }
 
 /* COMPACT MODE STYLES WHEN TIMELINE HAS MANY CARDS */
 .timeline-table__scroll-area--compact .timeline-card {
-  width: 110px;
-  min-width: 110px;
-  height: 180px;
+  width: 115px;
+  min-width: 115px;
+  height: 185px;
   padding: 0.5rem;
 }
 
 .timeline-table__scroll-area--compact .timeline-card__image-container {
-  height: 60px;
+  height: 65px;
 }
 
 .timeline-table__scroll-area--compact .timeline-card__title {
@@ -437,14 +445,14 @@ body {
 }
 
 .timeline-table__scroll-area--compact .insertion-slot {
-  min-width: 40px;
-  height: 160px;
+  min-width: 45px;
+  height: 165px;
   font-size: 1.1rem;
 }
 
 /* INSERTION SLOT ([ + ] BUTTONS BETWEEN CARDS) */
 .insertion-slot {
-  min-width: 55px;
+  min-width: 60px;
   height: 220px;
   border: 2px dashed var(--color-neon-cyan);
   border-radius: var(--radius-md);

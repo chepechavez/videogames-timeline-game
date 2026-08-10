@@ -71,29 +71,35 @@
     <!-- VIEW 1: STUDENT TIMELINE GAME (BEM: .game-view) -->
     <section class="view-section view-section--active" id="studentView">
       
-      <!-- TEAM HUD & TURN TIMER BAR -->
+      <!-- TEAM HUD & TURN TIMER BAR (CLEARLY DIFFERENTIATED BOXES) -->
       <div class="game-hud">
+        
+        <!-- BOX 1: EQUIPO EN TURNO -->
         <div class="hud-card hud-card--team">
           <span class="hud-card__icon">🛡️</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Equipo en Turno</span>
+            <span class="hud-card__label">EQUIPO EN TURNO</span>
             <span class="hud-card__value" id="hudTeamName">Equipo Alfa 🔴</span>
+            <span class="hud-card__subtext">Ronda Activa</span>
           </div>
         </div>
 
-        <div class="hud-card hud-card--turn">
-          <span class="hud-card__icon">🎲</span>
+        <!-- BOX 2: JUGADOR / REPRESENTANTE DE TURNO -->
+        <div class="hud-card hud-card--player">
+          <span class="hud-card__icon">👤</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Representante Activo</span>
-            <span class="hud-card__value" id="hudActiveTurn">Jugador...</span>
+            <span class="hud-card__label">JUGADOR DE TURNO</span>
+            <span class="hud-card__value" id="hudActiveTurnPlayer">Alex Mercer</span>
+            <span class="hud-card__subtext">Representante del Equipo</span>
           </div>
         </div>
 
+        <!-- BOX 3: TEMPORIZADOR DE TURNO -->
         <div class="hud-card hud-card--timer">
           <span class="hud-card__icon">⏱️</span>
           <div class="hud-card__content" style="width: 100%;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="hud-card__label">Tiempo de Turno</span>
+              <span class="hud-card__label">TIEMPO REGLAMENTARIO</span>
               <span class="hud-card__value" id="hudTurnTimer" style="color: var(--color-neon-pink);">60s</span>
             </div>
             <div class="timer-bar">
@@ -101,6 +107,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- MAIN GAME LAYOUT: CENTRAL TABLE + CHAT -->
@@ -118,17 +125,17 @@
                 </span>
               </div>
 
-              <!-- CONTROLES DE NAVEGACIÓN DE LA LÍNEA DE TIEMPO -->
+              <!-- CONTROLES DE NAVEGACIÓN VISIBLES -->
               <div class="timeline-table__controls">
-                <button class="btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.75rem;" onclick="toggleCompactTimelineView()" title="Alternar entre vista amplia y compacta de cartas">
+                <button class="btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="toggleCompactTimelineView()" title="Alternar tamaño de cartas">
                   🔍 Vista Compacta
                 </button>
-                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(-350)" title="Deslizar línea de tiempo a la izquierda">◀</button>
-                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(350)" title="Deslizar línea de tiempo a la derecha">▶</button>
+                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(-380)" title="Deslizar a la izquierda">◀ IZQUIERDA</button>
+                <button class="nav-arrow-btn" onclick="scrollTimelineTrack(380)" title="Deslizar a la derecha">DERECHA ▶</button>
               </div>
             </div>
 
-            <!-- Scrollable insertion track -->
+            <!-- Scrollable insertion track (full width, generous padding) -->
             <div class="timeline-table__scroll-area" id="timelineTrack">
               <!-- Dynamically populated insertion slots [+] and cards -->
             </div>

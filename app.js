@@ -4,10 +4,8 @@
    Fuente: The Strong National Museum of Play (museumofplay.org)
    ========================================================================== */
 
-// 🔗 CONSTANTE DEL WEBHOOK (Modificable por el profesor/integrador)
 const WEBHOOK_URL = "";
 
-// 📜 BASE DE DATOS HISTÓRICA COMPLETA DE 74 EVENTOS CON IMÁGENES
 const HISTORICAL_EVENTS = [
   { id: 1, year: 1940, title: "Computadora Nim (Edward U. Condon)", desc: "Edward U. Condon diseña una computadora que juega al juego tradicional Nim. Decenas de miles de personas lo juegan y la computadora gana al menos el 90% de las partidas.", image: "https://www.museumofplay.org/app/uploads/2021/08/1940-1-384x497.jpg" },
   { id: 2, year: 1947, title: "Tubo de Rayos Catódicos (Goldsmith & Mann)", desc: "Thomas T. Goldsmith Jr. y Estle Ray Mann patentan un dispositivo de entretenimiento con pantalla de osciloscopio para disparar a un objetivo.", image: "https://www.museumofplay.org/app/uploads/2021/08/1947-2-384x497.jpg" },
@@ -94,12 +92,12 @@ const ALL_TEAMS = [
 
 // STATE MANAGEMENT
 let gameState = {
-  gameMode: "projector", // "projector", "multitab", "online"
+  gameMode: "projector",
   numTeams: 4,
   initialCardsPerTeam: 4,
   isCompactView: false,
   
-  playerName: "",
+  playerName: "Alex Mercer",
   userTeamId: 0,
   roomCode: "AULA-101",
   joinedStudents: [],
@@ -256,9 +254,10 @@ function selectGameMode(mode) {
     document.getElementById("currentModeLabel").textContent = "📱 Multijugador Online (Celulares)";
     if (roomGroup) roomGroup.style.display = "flex";
   }
+  updateHud();
+  renderTeamHand();
 }
 
-// ↕️ CONVERSIÓN DE WHEEL MOUSE A SCROLL HORIZONTAL
 function setupTimelineScrollWheel() {
   const track = document.getElementById("timelineTrack");
   if (!track) return;
@@ -364,16 +363,19 @@ function shuffleArray(arr) {
   return arr;
 }
 
+// 🎯 DIFERENCIACIÓN CLARA DE LAS CAJAS DEL HUD (IMAGEN 1)
 function updateHud() {
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
   }
 
-  const userTeam = ALL_TEAMS[gameState.userTeamId];
-  document.getElementById("hudTeamName").textContent = `${userTeam.icon} ${userTeam.name}`;
-  
+  // CAJA 1: EQUIPO EN TURNO
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
-  document.getElementById("hudActiveTurn").textContent = `${currentTeam.icon} ${currentTeam.name}`;
+  document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
+  
+  // CAJA 2: JUGADOR DE TURNO (Muestra el nombre del jugador real o representante)
+  const playerNameDisplay = gameState.playerName ? gameState.playerName : `Representante ${currentTeam.name}`;
+  document.getElementById("hudActiveTurnPlayer").textContent = playerNameDisplay;
   
   const currentHand = gameState.teamHands[gameState.userTeamId] || [];
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
@@ -558,12 +560,12 @@ function handleSlotClick(slotIndex) {
   renderTimelineTable();
   renderTeamHand();
 
-  // Scroll automático hacia la posición insertada
+  // Scroll automático hacia la posición insertada con margen cómodo
   setTimeout(() => {
     const track = document.getElementById("timelineTrack");
     if (track) {
       const scrollPos = (slotIndex / (table.length + 1)) * track.scrollWidth;
-      track.scrollTo({ left: scrollPos - 200, behavior: 'smooth' });
+      track.scrollTo({ left: scrollPos - 250, behavior: 'smooth' });
     }
   }, 100);
 
