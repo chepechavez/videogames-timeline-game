@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gaming History Timeline & Live Dashboard</title>
+  <title>Timeline Board Game - Historia de los Videojuegos</title>
   
   <!-- Google Fonts: Retro & Cyberpunk Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,12 +18,18 @@
   <!-- CRT Visual Overlay (Toggleable Retro Arcade Effect) -->
   <div class="crt-overlay" id="crtOverlay"></div>
 
+  <!-- CANVAS FOR CONFETTI PARTICLES -->
+  <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999;"></canvas>
+
+  <!-- STREAK OVERLAY POPUP (DOBLE HIT, TRIPLE HIT, MONSTER KILL) -->
+  <div class="streak-overlay" id="streakOverlay"></div>
+
   <!-- APPLICATION HEADER & NAVIGATION (BEM: .app-header) -->
   <header class="app-header">
     <div class="app-header__brand">
-      <span class="app-header__logo-icon">🎮</span>
+      <span class="app-header__logo-icon">🕹️</span>
       <div>
-        <h1 class="app-header__title">RETRO TIMELINE ACADEMY</h1>
+        <h1 class="app-header__title">TIMELINE BOARD GAME</h1>
         <p class="app-header__subtitle">Ecosistema Educativo de Historia de los Videojuegos</p>
       </div>
     </div>
@@ -31,7 +37,7 @@
     <!-- Interface Switcher Tabs -->
     <nav class="app-header__nav" aria-label="Navegación principal">
       <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
-        <span>🕹️</span> Minijuego Estudiante
+        <span>🎮</span> Juego por Equipos
       </button>
       <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
         <span>📊</span> Dashboard Profesor
@@ -42,62 +48,94 @@
   <!-- MAIN APPLICATION CONTAINER -->
   <main class="app-body">
 
-    <!-- VIEW 1: STUDENT MINIGAME (BEM: .game-view) -->
+    <!-- VIEW 1: STUDENT TIMELINE GAME (BEM: .game-view) -->
     <section class="view-section view-section--active" id="studentView">
       
-      <!-- HUD / STATS BAR -->
+      <!-- TEAM HUD & TURN TIMER BAR -->
       <div class="game-hud">
-        <div class="hud-card hud-card--xp">
-          <span class="hud-card__icon">⚡</span>
+        <div class="hud-card hud-card--team">
+          <span class="hud-card__icon">🛡️</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Experiencia (XP)</span>
-            <span class="hud-card__value" id="hudXp">0 XP</span>
+            <span class="hud-card__label">Tu Equipo / Jugador</span>
+            <span class="hud-card__value" id="hudTeamName">Equipo Alfa</span>
           </div>
         </div>
 
-        <div class="hud-card hud-card--streak">
-          <span class="hud-card__icon">🔥</span>
+        <div class="hud-card hud-card--turn">
+          <span class="hud-card__icon">🎲</span>
           <div class="hud-card__content">
-            <span class="hud-card__label">Racha de Aciertos</span>
-            <span class="hud-card__value" id="hudStreak">0x</span>
+            <span class="hud-card__label">Turno Actual (Representante)</span>
+            <span class="hud-card__value" id="hudActiveTurn">Jugador...</span>
           </div>
         </div>
 
-        <div class="hud-card hud-card--progress">
-          <span class="hud-card__icon">🎯</span>
-          <div class="hud-card__content">
-            <span class="hud-card__label">Progreso</span>
-            <span class="hud-card__value" id="hudProgress">0 / 31</span>
-          </div>
-        </div>
-
-        <div class="hud-card">
+        <div class="hud-card hud-card--timer">
           <span class="hud-card__icon">⏱️</span>
-          <div class="hud-card__content">
-            <span class="hud-card__label">Tiempo Transcurrido</span>
-            <span class="hud-card__value" id="hudTimer">00:00</span>
+          <div class="hud-card__content" style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="hud-card__label">Tiempo de Turno</span>
+              <span class="hud-card__value" id="hudTurnTimer" style="color: var(--color-neon-pink);">60s</span>
+            </div>
+            <div class="timer-bar">
+              <div class="timer-bar__fill" id="hudTimerFill"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- PLAY ARENA: ACTIVE EVENT CARD -->
-      <div class="game-arena">
-        <div class="game-arena__instruction">
-          <span>👇</span> Arrastra la tarjeta a la década correspondiente o haz clic en la década abajo
+      <!-- MAIN GAME LAYOUT: CENTRAL TABLE + CHAT -->
+      <div class="game-layout">
+        
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          
+          <!-- TIMELINE CENTRAL TABLE (MESA DE CARTAS COLOCADAS) -->
+          <div class="timeline-table">
+            <div class="timeline-table__header">
+              <span class="timeline-table__title">📍 LÍNEA DE TIEMPO EN LA MESA</span>
+              <span style="font-size: 0.8rem; color: var(--color-text-muted);">
+                Selecciona una carta de tu mano y haz clic en un slot <strong style="color: var(--color-neon-cyan);">[ + ]</strong> para ubicarla
+              </span>
+            </div>
+
+            <!-- Scrollable insertion track -->
+            <div class="timeline-table__scroll-area" id="timelineTrack">
+              <!-- Dynamically populated insertion slots [+] and timeline cards -->
+            </div>
+          </div>
+
+          <!-- TEAM HAND CARDS (MANO DEL EQUIPO - 4 CARTAS OCULTAS) -->
+          <div class="team-hand">
+            <div class="team-hand__title">
+              <span>🎴 CARTAS EN MANO DE TU EQUIPO</span>
+              <span style="font-size: 0.8rem; font-weight: normal; color: var(--color-text-muted);" id="handCountLabel">4 cartas restantes</span>
+            </div>
+
+            <div class="team-hand__cards-grid" id="teamHandGrid">
+              <!-- Dynamically populated cards in hand -->
+            </div>
+          </div>
+
         </div>
 
-        <!-- Active Card Container -->
-        <div id="cardDeckContainer" style="width: 100%; display: flex; justify-content: center;">
-          <!-- Card dynamically rendered here -->
-        </div>
-      </div>
+        <!-- RIGHT SIDEBAR: TEAM CHAT BOX -->
+        <div class="chat-box">
+          <div class="chat-box__header">
+            <span>💬 CHAT EN VIVO DEL EQUIPO</span>
+          </div>
 
-      <!-- TIMELINE DECADES GRID (1940s - 2020s) -->
-      <div class="timeline">
-        <h2 class="timeline__title">LÍNEA DE TIEMPO HISTÓRICA DE LOS VIDEOJUEGOS</h2>
-        <div class="timeline__grid" id="timelineGrid">
-          <!-- 9 Decade slots (1940s to 2020s) dynamically populated -->
+          <div class="chat-box__messages" id="chatMessages">
+            <div class="chat-msg">
+              <span class="chat-msg__sender">🤖 Sistema:</span>
+              ¡Bienvenidos! Utilicen este chat para debatir la fecha entre su equipo antes de tirar la carta.
+            </div>
+          </div>
+
+          <form class="chat-box__input-area" onsubmit="handleSendChatMessage(event)">
+            <input type="text" id="chatInput" class="chat-box__input" placeholder="Debatir fecha con el equipo..." autocomplete="off">
+            <button type="submit" class="chat-box__send-btn">➔</button>
+          </form>
         </div>
+
       </div>
 
     </section>
@@ -109,7 +147,7 @@
         <!-- TOP CONTROL BAR -->
         <div class="dashboard__top-bar">
           <div class="dashboard__title">
-            <span>📺</span> PANEL DE CONTROL DOCENTE EN VIVO
+            <span>📺</span> PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO
           </div>
 
           <div style="display: flex; align-items: center; gap: 1rem;">
@@ -120,8 +158,8 @@
             </div>
 
             <!-- Demo Simulation Button for Classrooms -->
-            <button class="btn-secondary" onclick="simulateStudentSubmission()" title="Simula el envío automático de un estudiante para probar el dashboard en vivo">
-              🧪 Simular Estudiante
+            <button class="btn-secondary" onclick="simulateStudentSubmission()" title="Simula el envío automático de un turno para probar la telemetría en vivo">
+              🧪 Simular Turno de Aula
             </button>
           </div>
         </div>
@@ -130,61 +168,93 @@
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-card__header">
-              <span class="kpi-card__title">Estudiantes Activos</span>
+              <span class="kpi-card__title">Equipos / Jugadores</span>
               <span class="kpi-card__icon">👥</span>
             </div>
-            <div class="kpi-card__value" id="kpiActiveStudents">0</div>
+            <div class="kpi-card__value" id="kpiActiveStudents">4 Equipos</div>
             <div class="kpi-card__meta">
-              <span>● En sesión / completados</span>
+              <span>● Sincronizados en sesión</span>
             </div>
           </div>
 
           <div class="kpi-card">
             <div class="kpi-card__header">
-              <span class="kpi-card__title">Promedio Precisión General</span>
+              <span class="kpi-card__title">Efectividad General</span>
               <span class="kpi-card__icon">🎯</span>
             </div>
             <div class="kpi-card__value" id="kpiAvgAccuracy">0%</div>
             <div class="kpi-card__meta">
-              <span>● Primer intento exitoso</span>
+              <span>● Aciertos / Intentos totales</span>
             </div>
           </div>
 
           <div class="kpi-card">
             <div class="kpi-card__header">
-              <span class="kpi-card__title">Tiempo Promedio de Resolución</span>
+              <span class="kpi-card__title">Tiempo Promedio / Turno</span>
               <span class="kpi-card__icon">⏱️</span>
             </div>
             <div class="kpi-card__value" id="kpiAvgTime">0s</div>
             <div class="kpi-card__meta">
-              <span>● Velocidad por partida completa</span>
+              <span>● Máximo 60s por turno</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-card__header">
+              <span class="kpi-card__title">Cartas en Mesa</span>
+              <span class="kpi-card__icon">📍</span>
+            </div>
+            <div class="kpi-card__value" id="kpiCardsInTable">1</div>
+            <div class="kpi-card__meta">
+              <span>● Eventos cronológicos</span>
             </div>
           </div>
         </div>
 
-        <!-- LEADERBOARD & METRICS TABLE -->
-        <div class="leaderboard-card">
-          <div class="leaderboard-card__title">
-            <span>🏆 LEADERBOARD EN TIEMPO REAL</span>
-            <span style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: normal;">
-              Ordenado por Aciertos primer intento ➔ Tiempo total
-            </span>
+        <!-- METRICS SECTION: LEADERBOARD + HARDEST CARDS -->
+        <div class="metrics-section">
+          
+          <!-- LEADERBOARD BY TEAM EFFECTIVENESS -->
+          <div class="leaderboard-card">
+            <div class="leaderboard-card__title">
+              <span>🏆 LEADERBOARD DE EQUIPOS</span>
+            </div>
+
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Equipo</th>
+                  <th>Cartas Restantes</th>
+                  <th>Efectividad (%)</th>
+                  <th>Aciertos / Fallos</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
           </div>
 
-          <table class="leaderboard-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Puntaje XP</th>
-                <th>Precisión / Aciertos vs Errores</th>
-                <th>Velocidad Prom.</th>
-                <th>Tiempo Total</th>
-              </tr>
-            </thead>
-            <tbody id="leaderboardBody">
-              <!-- Dynamically rendered rows from GET Polling data -->
-            </tbody>
-          </table>
+          <!-- HARDEST CARDS (MOST ERROR-PRONE EVENTS) -->
+          <div class="leaderboard-card">
+            <div class="leaderboard-card__title">
+              <span>🔥 CARTAS MÁS DIFÍCILES (MAYOR ÍNDICE DE ERROR)</span>
+            </div>
+
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Evento / Año</th>
+                  <th>Fallos Acumulados</th>
+                  <th>Dificultad</th>
+                </tr>
+              </thead>
+              <tbody id="hardestCardsBody">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+
         </div>
 
       </div>
@@ -193,15 +263,26 @@
 
   </main>
 
-  <!-- MODAL 1: STUDENT INITIAL REGISTRATION FORM -->
+  <!-- FOOTER WITH ATTRIBUTION LINK -->
+  <footer class="app-footer">
+    <p>
+      🎮 Timeline Board Game Educational Ecosystem • 
+      Eventos e imágenes obtenidos de: 
+      <a href="https://www.museumofplay.org/video-game-history-timeline/" target="_blank" rel="noopener noreferrer">
+        The Strong National Museum of Play (Video Game History Timeline)
+      </a>
+    </p>
+  </footer>
+
+  <!-- MODAL 1: STUDENT REGISTRATION & TEAM SELECTION -->
   <div class="modal-overlay modal-overlay--active" id="modalStudentRegister">
     <div class="modal">
-      <h2 class="modal__title">🚀 INICIAR DESAFÍO HISTÓRICO</h2>
-      <p class="modal__subtitle">Ingresa tus datos para registrar tus logros en la sesión del aula:</p>
+      <h2 class="modal__title">🕹️ REGISTRO DE JUGADOR DE TIMELINE</h2>
+      <p class="modal__subtitle">Ingresa tu nombre y selecciona tu equipo para la partida:</p>
 
       <form id="studentRegisterForm" onsubmit="handleStartGame(event)">
         <div class="form-group">
-          <label class="form-group__label" for="inputStudentName">Nombre del Estudiante:</label>
+          <label class="form-group__label" for="inputStudentName">Nombre / Alias del Jugador:</label>
           <input type="text" id="inputStudentName" class="form-group__input" placeholder="Ej: Alex Mercer" required>
         </div>
 
@@ -210,50 +291,57 @@
           <input type="text" id="inputStudentId" class="form-group__input" placeholder="Ej: EST-9482" required>
         </div>
 
+        <div class="form-group">
+          <label class="form-group__label" for="selectTeam">Selecciona tu Equipo:</label>
+          <select id="selectTeam" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;">
+            <option value="0">Equipo Alfa 🔴</option>
+            <option value="1">Equipo Beta 🔵</option>
+            <option value="2">Equipo Gamma 🟡</option>
+            <option value="3">Equipo Delta 🟢</option>
+          </select>
+        </div>
+
         <button type="submit" class="btn-primary" style="margin-top: 1rem;">
-          ¡COMENZAR JUEGO! 🕹️
+          ¡UNIRSE A LA PARTIDA! 🚀
         </button>
       </form>
     </div>
   </div>
 
-  <!-- MODAL 2: MULTICHANNEL DIAGNOSTIC RESULT PANEL (PEDAGOGIC BEM FEEDBACK) -->
+  <!-- MODAL 2: DIAGNOSTIC & GAME OVER SUMMARY -->
   <div class="modal-overlay" id="modalDiagnostic">
     <div class="modal" style="max-width: 600px;">
-      <h2 class="modal__title">📋 DIAGNÓSTICO DE APRENDIZAJE</h2>
-      <p class="modal__subtitle">Evaluación pedagógica continua multicanal completada:</p>
+      <h2 class="modal__title" id="diagTitle">🏆 ¡PARTIDA FINALIZADA!</h2>
+      <p class="modal__subtitle" id="diagWinnerSubtitle">El Equipo Alfa ha logrado colocar su última carta correctamente.</p>
 
       <!-- Diagnostic Metrics Grid -->
       <div class="diagnostic-grid">
         <div class="diagnostic-box">
-          <span class="diagnostic-box__label">Precisión de Conocimiento</span>
+          <span class="diagnostic-box__label">Efectividad Global</span>
           <span class="diagnostic-box__value diagnostic-box__value--accuracy" id="diagAccuracy">0%</span>
-          <span style="font-size: 0.75rem; color: var(--color-text-muted);" id="diagAccuracySub">0 de 31 al primer intento</span>
         </div>
 
         <div class="diagnostic-box">
-          <span class="diagnostic-box__label">Velocidad de Decisión</span>
-          <span class="diagnostic-box__value diagnostic-box__value--speed" id="diagSpeed">0.0s</span>
-          <span style="font-size: 0.75rem; color: var(--color-text-muted);">segundos por tarjeta</span>
+          <span class="diagnostic-box__label">Total Rondas Jugadas</span>
+          <span class="diagnostic-box__value diagnostic-box__value--speed" id="diagRounds">0</span>
         </div>
       </div>
 
       <!-- Experience & Performance Summary -->
       <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; text-align: center;">
-        <div style="font-family: var(--font-heading); font-size: 1.1rem; color: var(--color-neon-yellow);" id="diagTotalXp">0 XP Ganados</div>
-        <p style="font-size: 0.85rem; color: var(--color-text-main); margin-top: 0.5rem;" id="diagFeedbackMessage">
-          ¡Gran demostración de perseverancia! Has completado la línea de tiempo usando la retroalimentación formativa.
+        <p style="font-size: 0.9rem; color: var(--color-text-main);" id="diagFeedbackMessage">
+          ¡Extraordinario trabajo en equipo y estrategia cronológica!
         </p>
       </div>
 
       <div style="display: flex; gap: 1rem;">
-        <button class="btn-primary" onclick="restartGame()">🔄 Jugar de Nuevo</button>
-        <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Dashboard Live</button>
+        <button class="btn-primary" onclick="restartGame()">🔄 Nueva Partida</button>
+        <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Dashboard Docente</button>
       </div>
     </div>
   </div>
 
-  <!-- JavaScript Core App Engine -->
+  <!-- JavaScript Core Engine -->
   <script src="app.js"></script>
 </body>
 </html>

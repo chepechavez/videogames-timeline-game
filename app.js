@@ -1,138 +1,231 @@
 /* ==========================================================================
-   RETRO TIMELINE ACADEMY - CORE ENGINE
-   Estudiante Minijuego + Dashboard Profesor en Vivo
+   TIMELINE BOARD GAME - MULTIPLAYER CORE ENGINE
+   Fiel a las mecánicas del juego de mesa con 74 Eventos e Imágenes Oficiales
+   Fuente: The Strong National Museum of Play (museumofplay.org)
    ========================================================================== */
 
 // 🔗 CONSTANTE DEL WEBHOOK (Modificable por el profesor/integrador)
 const WEBHOOK_URL = "";
 
-// 📜 BASE DE DATOS HISTÓRICA COMPLETA DE LOS VIDEOJUEGOS (31 Eventos)
+// 📜 BASE DE DATOS HISTÓRICA COMPLETA DE 74 EVENTOS CON IMÁGENES
 const HISTORICAL_EVENTS = [
-  { id: 1, year: 1940, decade: "1940s", title: "Computadora Nim (Edward U. Condon)", desc: "Edward U. Condon diseña una computadora que juega Nim. Miles de personas juegan y la máquina gana.", hint: "💡 Pista: Fue en los inicios de la computación matemática militar/académica de la década de 1940.", icon: "🧮" },
-  { id: 2, year: 1947, decade: "1940s", title: "Cathode-Ray Tube Amusement Device", desc: "Thomas T. Goldsmith Jr. y Estle Ray Mann patentan el primer dispositivo de entretenimiento interactivo con pantalla CRT.", hint: "💡 Pista: Ocurrió justo después de la Segunda Guerra Mundial (1947).", icon: "📺" },
-  { id: 3, year: 1950, decade: "1950s", title: "Artículo de Claude Shannon sobre Ajedrez", desc: "Claude Shannon publica un artículo pionero sobre cómo programar una computadora para jugar al ajedrez.", hint: "💡 Pista: Marco teórico fundamental de IA publicado a inicios de los 50s (1950).", icon: "♟️" },
-  { id: 4, year: 1952, decade: "1950s", title: "OXO (Tres en Raya en EDSAC)", desc: "A.S. Douglas crea OXO en la computadora EDSAC para su tesis de doctorado en Cambridge.", hint: "💡 Pista: Primer juego gráfico en computadora de la década de 1950.", icon: "⭕" },
-  { id: 5, year: 1958, decade: "1950s", title: "Tennis for Two (Willy Higinbotam)", desc: "Willy Higinbotam crea un juego interactivo de tenis proyectado en un osciloscopio en el laboratorio Brookhaven.", hint: "💡 Pista: Creado para entretener a los visitantes de un laboratorio nuclear en 1958.", icon: "🎾" },
-  { id: 6, year: 1962, decade: "1960s", title: "Spacewar! (PDP-1 en el MIT)", desc: "Steve Russell y su equipo crean Spacewar!, el primer duelo espacial computarizado en la PDP-1.", hint: "💡 Pista: Desarrollado por hackers universitarios del MIT a principios de los 60s (1962).", icon: "🚀" },
-  { id: 7, year: 1967, decade: "1960s", title: "Prototipo 'Brown Box' (Ralph Baer)", desc: "Ralph Baer, el 'Padre de los Videojuegos', desarrolla el prototipo funcional de consola casera 'Brown Box'.", hint: "💡 Pista: Nace el concepto de conectar consolas a televisores domésticos a finales de los 60s.", icon: "📦" },
-  { id: 8, year: 1971, decade: "1970s", title: "Computer Space (Nolan Bushnell)", desc: "Nolan Bushnell y Ted Dabney crean la primera máquina arcade comercial operada por monedas.", hint: "💡 Pista: Nacimiento de los videojuegos recreativos comerciales en 1971.", icon: "🕹️" },
-  { id: 9, year: 1972, decade: "1970s", title: "Magnavox Odyssey & Atari Pong", desc: "Se lanza la Magnavox Odyssey (primera consola) y Atari conquista los salones arcade con Pong.", hint: "💡 Pista: El gran despegue comercial masivo de los videojuegos en 1972.", icon: "🏓" },
-  { id: 10, year: 1977, decade: "1970s", title: "Atari 2600 (VCS)", desc: "Atari lanza la consola Atari 2600 impulsando el mercado de cartuchos intercambiables en los hogares.", hint: "💡 Pista: Consola icónica con palanca de madera lanzada en 1977.", icon: "🕹️" },
-  { id: 11, year: 1978, decade: "1970s", title: "Space Invaders (Taito)", desc: "Taito lanza Space Invaders, causando un fenómeno cultural masivo y escasez de monedas de 100 yenes en Japón.", hint: "💡 Pista: El mítico juego de alienígenas que invadió las arcades en 1978.", icon: "👾" },
-  { id: 12, year: 1980, decade: "1980s", title: "Pac-Man (Namco)", desc: "Toru Iwatani diseña Pac-Man para Namco, convirtiéndose en un ícono global de la cultura pop.", hint: "💡 Pista: El comecocos amarillo debutó abriendo la dorada década de los 80s (1980).", icon: "🟡" },
-  { id: 13, year: 1981, decade: "1980s", title: "Donkey Kong (Nintendo)", desc: "Shigeru Miyamoto crea Donkey Kong en arcade, presentando al mundo a Jumpman (Mario).", hint: "💡 Pista: Debut de Mario y primera obra maestra de Miyamoto en 1981.", icon: "🦍" },
-  { id: 14, year: 1983, decade: "1980s", title: "Colapso del Videojuego de 1983", desc: "La industria norteamericana sufre una severa recesión por sobreoferta de juegos de baja calidad.", hint: "💡 Pista: La famosa gran crisis que sepultó cartuchos en el desierto en 1983.", icon: "💥" },
-  { id: 15, year: 1985, decade: "1980s", title: "NES & Super Mario Bros", desc: "Nintendo revive la industria con el lanzamiento norteamericano de la NES y Super Mario Bros.", hint: "💡 Pista: El fontanero rescató la industria casera en 1985.", icon: "🍄" },
-  { id: 16, year: 1989, decade: "1980s", title: "Game Boy & Tetris", desc: "Nintendo lanza la portátil Game Boy junto al adictivo juego de acertijos Tetris.", hint: "💡 Pista: Revolución del juego portátil a finales de los 80s (1989).", icon: "📟" },
-  { id: 17, year: 1991, decade: "1991s", decadeReal: "1990s", title: "Sonic the Hedgehog (Sega)", desc: "Sega presenta a Sonic para rivalizar directamente con Nintendo en la era de los 16-bits.", hint: "💡 Pista: El erizo azul superveloz nació a principios de los 90s (1991).", icon: "🦔" },
-  { id: 18, year: 1993, decade: "1990s", title: "Doom (id Software)", desc: "id Software lanza Doom, popularizando los juegos de disparos en primera persona (FPS) y redes LAN.", hint: "💡 Pista: El rey de los FPS 3D sangrientos de 1993.", icon: "🔫" },
-  { id: 19, year: 1994, decade: "1990s", title: "Sony PlayStation", desc: "Sony entra en la industria lanzando la PlayStation, masificando los gráficos 3D en CD-ROM.", hint: "💡 Pista: La consola gris de Sony que dominó mediados de los 90s (1994/95).", icon: "💿" },
-  { id: 20, year: 1996, decade: "1990s", title: "Nintendo 64 & Super Mario 64", desc: "Nintendo lanza la N64 definiendo para siempre los estándares del movimiento 3D con camara libre.", hint: "💡 Pista: Revolución tridimensional de 64 bits en 1996.", icon: "⭐" },
-  { id: 21, year: 2000, decade: "2000s", title: "Sony PlayStation 2", desc: "Sony lanza la PS2, la consola hogareña más vendida de todos los tiempos que incluía DVD.", hint: "💡 Pista: Dio la bienvenida al nuevo milenio en el año 2000.", icon: "🖤" },
-  { id: 22, year: 2001, decade: "2000s", title: "Microsoft Xbox & Halo", desc: "Microsoft debuta en las consolas con Xbox, incorporando puerto Ethernet y disco duro integrado.", hint: "💡 Pista: Debut del Jefe Maestro y la marca Xbox en 2001.", icon: "🟢" },
-  { id: 23, year: 2004, decade: "2000s", title: "World of Warcraft (Blizzard)", desc: "Blizzard lanza WoW, estableciendo el estándar de oro para los juegos de rol multijugador masivos (MMORPG).", hint: "💡 Pista: El fenómeno de Azeroth que atrapó a millones a mediados de los 2000s (2004).", icon: "⚔️" },
-  { id: 24, year: 2006, decade: "2000s", title: "Nintendo Wii", desc: "Nintendo revoluciona el mercado casual con la Wii y sus innovadores controles por movimiento.", hint: "💡 Pista: El Wiimote que puso a jugar bowling a toda la familia en 2006.", icon: "🎾" },
-  { id: 25, year: 2007, decade: "2000s", title: "iPhone & Gaming Móvil", desc: "El lanzamiento del iPhone cataliza la era moderna de los videojuegos móviles y pantallas táctiles.", hint: "💡 Pista: El inicio del boom de aplicaciones y juegos de bolsillo en 2007.", icon: "📱" },
-  { id: 26, year: 2011, decade: "2010s", title: "Minecraft (Mojang)", desc: "Mojang lanza oficialmente Minecraft, convirtiéndose en el videojuego más vendido de la historia.", hint: "💡 Pista: El mundo infinito de bloques creado por Notch en 2011.", icon: "⛏️" },
-  { id: 27, year: 2013, decade: "2010s", title: "Lanzamiento de PS4, Xbox One & GTA V", desc: "Se estrena la octava generación de consolas junto al lanzamiento histórico de GTA V.", hint: "💡 Pista: Un año récord en ventas y lanzamientos masivos (2013).", icon: "🚗" },
-  { id: 28, year: 2016, decade: "2010s", title: "Pokémon GO (Niantic)", desc: "Niantic y The Pokémon Company sacan a millones a las calles con el fenómeno de realidad aumentada.", hint: "💡 Pista: Verano viral de cazar pokémones en las calles en 2016.", icon: "🔴" },
-  { id: 29, year: 2017, decade: "2010s", title: "Nintendo Switch & Fortnite", desc: "Nintendo presenta su consola híbrida Switch mientras Epic Games revoluciona con el Battle Royale Fortnite.", hint: "💡 Pista: El gran año del gaming híbrido y los bailes virales (2017).", icon: "🎮" },
-  { id: 30, year: 2020, decade: "2020s", title: "Gaming en Pandemia (Animal Crossing & Among Us)", desc: "El confinamiento mundial impulsa juegos sociales de convivencia y deducción como Animal Crossing y Among Us.", hint: "💡 Pista: Eventos del inicio de la década de 2020 durante la cuarentena.", icon: "😷" },
-  { id: 31, year: 2021, decade: "2020s", title: "Hades gana un Premio Hugo", desc: "El roguelike Hades se convierte en el primer videojuego en la historia en recibir un prestigioso Premio Hugo de literatura.", hint: "💡 Pista: Reconocimiento literario para los videojuegos en 2021.", icon: "🏛️" },
-  { id: 32, year: 2022, decade: "2020s", title: "The New York Times adquiere Wordle", desc: "El fenómeno viral diario de acertijos de palabras Wordle es comprado por The New York Times.", hint: "💡 Pista: Fiebre de los 5 cuadritos verdes comprados por un periódico en 2022.", icon: "🟩" },
-  { id: 33, year: 2023, decade: "2020s", title: "Adaptaciones de The Last of Us & Super Mario Movie", desc: "Los videojuegos dominan Hollywood con la aclamada serie de HBO y la taquillera película animada.", hint: "💡 Pista: El gran éxito de los videojuegos en cine y TV de 2023.", icon: "🎬" },
-  { id: 34, year: 2024, decade: "2020s", title: "Astro Bot (PlayStation)", desc: "Lanzamiento del aclamado juego de plataformas Astro Bot rindiendo homenaje a la historia de los videojuegos.", hint: "💡 Pista: Celebración de la historia de PlayStation en 2024.", icon: "🤖" }
+  { id: 1, year: 1940, title: "Computadora Nim (Edward U. Condon)", desc: "Edward U. Condon diseña una computadora que juega al juego tradicional Nim. Decenas de miles de personas lo juegan y la computadora gana al menos el 90% de las partidas.", image: "https://www.museumofplay.org/app/uploads/2021/08/1940-1-384x497.jpg" },
+  { id: 2, year: 1947, title: "Tubo de Rayos Catódicos (Goldsmith & Mann)", desc: "Thomas T. Goldsmith Jr. y Estle Ray Mann patentan un dispositivo de entretenimiento con pantalla de osciloscopio para disparar a un objetivo.", image: "https://www.museumofplay.org/app/uploads/2021/08/1947-2-384x497.jpg" },
+  { id: 3, year: 1950, title: "Artículo de Ajedrez de Claude Shannon", desc: "Claude Shannon establece las pautas básicas para programar una computadora que juegue al ajedrez. Alan Turing también crea un programa de ajedrez este año.", image: "https://www.museumofplay.org/app/uploads/2021/08/1950-384x497.jpg" },
+  { id: 4, year: 1952, title: "OXO - Tres en Raya (A.S. Douglas)", desc: "A. S. Douglas crea OXO en la computadora EDSAC de Cambridge como parte de su investigación sobre la interacción entre humanos y computadoras.", image: "https://www.museumofplay.org/app/uploads/2021/08/1952-384x497.jpg" },
+  { id: 5, year: 1954, title: "Primer Programa de Blackjack (Los Álamos)", desc: "Programadores en los laboratorios de Los Álamos en Nuevo México desarrollan el primer programa de blackjack en una computadora IBM-701.", image: "https://www.museumofplay.org/app/uploads/2021/08/1954-384x497.jpg" },
+  { id: 6, year: 1955, title: "Hutspiel (Simulación Militar EE. UU.)", desc: "La tradición de los juegos de guerra entra en la era informática cuando el ejército de EE. UU. diseña Hutspiel entre comandantes de la OTAN y soviéticos.", image: "https://www.museumofplay.org/app/uploads/2021/08/1955-384x497.jpg" },
+  { id: 7, year: 1956, title: "Programa de Damas de Arthur Samuel", desc: "Arthur Samuel demuestra en televisión su programa informático de damas en una IBM-701. Seis años más tarde logra derrotar a un maestro de damas.", image: "https://www.museumofplay.org/app/uploads/2021/08/1956-384x497.jpg" },
+  { id: 8, year: 1957, title: "Ajedrez Avanzado en IBM-704 (Alex Bernstein)", desc: "Alex Bernstein escribe el primer programa completo de ajedrez capaz de evaluar cuatro jugadas intermedias hacia adelante.", image: "https://www.museumofplay.org/app/uploads/2021/08/1957-384x497.jpg" },
+  { id: 9, year: 1958, title: "Tennis for Two (Willy Higinbotham)", desc: "Willy Higinbotham crea un juego de tenis en un osciloscopio y una computadora analógica para una demostración pública en Brookhaven Laboratory.", image: "https://www.museumofplay.org/app/uploads/2021/08/1958-copy-384x497.png" },
+  { id: 10, year: 1959, title: "Mouse in the Maze (MIT TX-0)", desc: "Estudiantes del MIT crean Mouse in the Maze. Los usuarios dibujaban un laberinto con lápiz óptico y un ratón lo navegaba buscando queso o martinis.", image: "https://www.museumofplay.org/app/uploads/2021/08/1959-copy-384x497.png" },
+  { id: 11, year: 1960, title: "Simulación de Béisbol por Computadora", desc: "John Burgeson desarrolla en su hogar la primera simulación de béisbol ejecutada en una computadora IBM 1620.", image: "https://www.museumofplay.org/app/uploads/2021/08/1960-Burgeson-BBC-73-384x497.jpg" },
+  { id: 12, year: 1961, title: "Grand Strategy (Raytheon Guerra Fría)", desc: "Raytheon desarrolla una simulación por computadora del conflicto de la Guerra Fría para el Estado Mayor Conjunto de los EE. UU.", image: "https://www.museumofplay.org/app/uploads/2021/08/1961-Raytheon-Cold-War-Conflict-Simulation-384x497.jpg" },
+  { id: 13, year: 1962, title: "Spacewar! (Steve Russell en el MIT)", desc: "Steve Russell inventa Spacewar! en la computadora PDP-1 del MIT, el primer videojuego interactivo de combate espacial.", image: "https://www.museumofplay.org/app/uploads/2021/08/1962-final-384x497.jpg" },
+  { id: 14, year: 1963, title: "STAGE (Juego de Guerra Termonuclear)", desc: "El Departamento de Defensa de EE. UU. completa STAGE, un juego de guerra informático sobre intercambio atómico global.", image: "https://www.museumofplay.org/app/uploads/2021/08/1963-384x497.jpg" },
+  { id: 15, year: 1964, title: "Lenguaje BASIC y Sistema Dartmouth", desc: "John Kemeny crea BASIC y el sistema de tiempo compartido, facilitando a los estudiantes la creación de múltiples juegos de computadora.", image: "https://www.museumofplay.org/app/uploads/2021/08/1964-BASIC-copy-384x497.jpg" },
+  { id: 16, year: 1965, title: "Primer Juego de Fútbol Americano por Computadora", desc: "Un estudiante de Dartmouth programa el primer juego de fútbol americano por computadora en BASIC tras ganar el campeonato.", image: "https://www.museumofplay.org/app/uploads/2021/08/1965-copy-384x497.png" },
+  { id: 17, year: 1966, title: "Concepción del Videojuego de TV (Ralph Baer)", desc: "Ralph Baer concibe la idea de jugar videojuegos en un televisor mientras esperaba un autobús en Nueva York.", image: "https://www.museumofplay.org/app/uploads/2021/08/1966-correct-image-copy_0-384x497.png" },
+  { id: 18, year: 1967, title: "Prototipo 'Brown Box' (Ralph Baer)", desc: "Ralph Baer desarrolla la 'Brown Box', el prototipo de consola doméstica que permite jugar al tenis en la televisión.", image: "https://www.museumofplay.org/app/uploads/2021/08/1967-Brown-Box-384x497.png" },
+  { id: 19, year: 1968, title: "Patente del Juego de TV Interactivo", desc: "Ralph Baer patenta su juego de TV interactivo. Cuatro años más tarde daría origen a la Magnavox Odyssey.", image: "https://www.museumofplay.org/app/uploads/2021/08/1968-Odyssey-384x497.jpg" },
+  { id: 20, year: 1970, title: "Juego de la Vida (Conway's LIFE)", desc: "Scientific American publica las reglas de LIFE de Martin Gardner. Hackers observan cómo células nacen y mueren en computadoras.", image: "https://www.museumofplay.org/app/uploads/2021/08/1970-life-copy-384x497.png" },
+  { id: 21, year: 1971, title: "The Oregon Trail", desc: "Don Rawitsch, Bill Heinemann y Paul Dillenberger crean Oregon Trail, la mítica simulación del viaje de los pioneros hacia el oeste.", image: "https://www.museumofplay.org/app/uploads/2021/08/1971-The-Oregon-Trail-Game-384x497.jpg" },
+  { id: 22, year: 1972, title: "Nacimiento de Pong (Atari)", desc: "Nolan Bushnell y Al Alcorn lanzan Pong en arcade. La máquina en la taberna Andy Capps deja de funcionar por estar atascada de monedas.", image: "https://www.museumofplay.org/app/uploads/2021/08/1972-Pong-copy-384x497.jpg" },
+  { id: 23, year: 1973, title: "Libro '101 BASIC Computer Games'", desc: "David Ahl publica 101 BASIC Computer Games, permitiendo a los jugadores convertirse en reyes sumerios o comandar la Guerra Civil.", image: "https://www.museumofplay.org/app/uploads/2021/08/1973_0-384x497.jpg" },
+  { id: 24, year: 1974, title: "Maze Wars (Primer FPS 3D)", desc: "Maze Wars introduce el primer juego de disparos en primera persona en pasadizos gráficos de alambre.", image: "https://www.museumofplay.org/app/uploads/2021/08/1974-384x497.jpg" },
+  { id: 25, year: 1975, title: "Home Pong (Consola Doméstica de Atari)", desc: "Atari introduce la versión doméstica de Pong, vendiendo las primeras unidades a través de las tiendas Sears Roebuck.", image: "https://www.museumofplay.org/app/uploads/2021/08/1975-Atari-Pong-Home-Console-384x497.jpg" },
+  { id: 26, year: 1976, title: "Adventure (Colossal Cave Adventure)", desc: "Don Woods amplía el juego conversacional de William Crowther, abriendo el camino para Zork y los juegos de rol por computadora.", image: "https://www.museumofplay.org/app/uploads/2021/08/1976-copy-384x497.png" },
+  { id: 27, year: 1977, title: "Atari 2600 (Video Computer System)", desc: "Atari lanza la mítica consola 2600 con joysticks y cartuchos intercambiables a color en los hogares de millones de estadounidenses.", image: "https://www.museumofplay.org/app/uploads/2021/08/1977-384x497.jpg" },
+  { id: 28, year: 1978, title: "Space Invaders (Taito)", desc: "Space Invaders de Taito desciende sobre Japón causando escasez de monedas de 100 yenes y convirtiéndose en fenómeno mundial.", image: "https://www.museumofplay.org/app/uploads/2021/08/1978-384x497.jpg" },
+  { id: 29, year: 1979, title: "Intellivision (Mattel)", desc: "Mattel lanza la consola Intellivision con gráficos superiores a Atari 2600, vendiendo 3 millones de unidades.", image: "https://www.museumofplay.org/app/uploads/2021/08/1979-384x497.jpg" },
+  { id: 30, year: 1980, title: "Pac-Man (Namco)", desc: "Toru Iwatani crea Pac-Man para Namco, el arcade más vendido de la historia e ícono absoluto de la cultura pop.", image: "https://www.museumofplay.org/app/uploads/2021/08/1980_0-384x497.jpg" },
+  { id: 31, year: 1981, title: "Donkey Kong (Nintendo)", desc: "Shigeru Miyamoto crea Donkey Kong en arcade, introduciendo a Jumpman (Mario) y definiendo el género de plataformas.", image: "https://www.museumofplay.org/app/uploads/2021/08/1981-Plush-Mario-384x497.jpg" },
+  { id: 32, year: 1982, title: "Película y Arcade TRON & Ms. Pac-Man", desc: "Disney lanza TRON y su arcade derivado. Al mismo tiempo, Ms. Pac-Man se convierte en uno de los juegos más exitosos.", image: "https://www.museumofplay.org/app/uploads/2021/08/1982-384x497.jpg" },
+  { id: 33, year: 1983, title: "Crisis de los Videojuegos de 1983", desc: "La industria norteamericana sufre un colapso masivo por la saturación de consolas de baja calidad y juegos deficientes.", image: "https://upload.wikimedia.org/wikipedia/en/f/f8/Etvideogamecover.jpg" },
+  { id: 34, year: 1984, title: "Tetris (Alexey Pajitnov)", desc: "Alexey Pajitnov diseña Tetris en una computadora BESM-6 en Moscú, convirtiéndose en un rompecabezas viral planetario.", image: "https://www.museumofplay.org/app/uploads/2021/08/tetris-384x497.png" },
+  { id: 35, year: 1985, title: "Consola NES & Super Mario Bros", desc: "Nintendo lanza la NES en América del Norte, salvando la industria doméstica con el legendario Super Mario Bros.", image: "https://www.museumofplay.org/app/uploads/2021/08/1985-384x497.jpg" },
+  { id: 36, year: 1986, title: "Reader Rabbit (Software Educativo)", desc: "The Learning Company introduce Reader Rabbit, marcando el avance del software educativo e interactivo.", image: "https://www.museumofplay.org/app/uploads/2021/08/1986-Reader-rabbit-384x497.jpg" },
+  { id: 37, year: 1987, title: "The Legend of Zelda & Juegos de Rol", desc: "Shigeru Miyamoto lanza The Legend of Zelda, Sierra crea Leisure Suit Larry y SSI obtiene la licencia de D&D.", image: "https://www.museumofplay.org/app/uploads/2021/08/1987-Legend-of-Zelda-copy-384x497.jpg" },
+  { id: 38, year: 1988, title: "John Madden Football", desc: "John Madden Football introduce el realismo de los deportes profesionales en computadora, iniciando una saga récord.", image: "https://www.museumofplay.org/app/uploads/2021/08/1988-384x497.jpg" },
+  { id: 39, year: 1989, title: "Nintendo Game Boy", desc: "Nintendo lanza la portátil Game Boy con Tetris, popularizando el juego portátil gracias a su autonomía.", image: "https://www.museumofplay.org/app/uploads/2021/08/1989-Game-Boy-384x497.jpg" },
+  { id: 40, year: 1990, title: "Solitario en Windows 3.0", desc: "Microsoft incluye el Solitario en Windows 3.0, masificando los juegos casuales en computadoras de oficina y hogares.", image: "https://www.museumofplay.org/app/uploads/2021/08/1990_0-384x497.png" },
+  { id: 41, year: 1991, title: "Sonic the Hedgehog (Sega Genesis)", desc: "Sega presenta a Sonic para competir contra Nintendo en la era de los 16-bits con supervelocidad y actitud.", image: "https://www.museumofplay.org/app/uploads/2021/08/1991-Sega-Sonic_0-384x497.jpg" },
+  { id: 42, year: 1992, title: "Dune II (Estrategia en Tiempo Real)", desc: "Westwood Studios lanza Dune II, definiendo las bases del género de estrategia en tiempo real (RTS).", image: "https://www.museumofplay.org/app/uploads/2021/08/1992-DUNE-II-384x497.jpg" },
+  { id: 43, year: 1993, title: "Doom & Clasificación ESRB", desc: "id Software lanza Doom revolucionando los FPS 3D. El debate por violencia en Mortal Kombat motiva el sistema de clasificación.", image: "https://www.museumofplay.org/app/uploads/2021/08/1993-384x497.png" },
+  { id: 44, year: 1994, title: "Warcraft: Orcs and Humans", desc: "Blizzard lanza Warcraft, introduciendo a millones de jugadores al universo fantástico de Azeroth.", image: "https://www.museumofplay.org/app/uploads/2021/08/1994-WarCraft-copy_0-384x497.jpg" },
+  { id: 45, year: 1995, title: "Sony PlayStation", desc: "Sony debuta con la consola PlayStation en América del Norte, masificando el formato CD-ROM en 3D.", image: "https://www.museumofplay.org/app/uploads/2021/08/1995-384x497.jpg" },
+  { id: 46, year: 1996, title: "Lara Croft en Tomb Raider", desc: "Debuta Lara Croft en Tomb Raider de Eidos, convirtiéndose en un ícono cultural de aventuras tridimensionales.", image: "https://www.museumofplay.org/app/uploads/2021/08/Tomb-Raider-sq-384x497.jpg" },
+  { id: 47, year: 1997, title: "Deep Blue Derrota a Garry Kasparov", desc: "La supercomputadora de IBM Deep Blue derrota en un duelo de ajedrez al campeón mundial Garry Kasparov.", image: "https://www.museumofplay.org/app/uploads/2021/08/1997-Deep-Blue-Flickr-Shiny-Things-384x497.jpg" },
+  { id: 48, year: 1998, title: "The Legend of Zelda: Ocarina of Time", desc: "Nintendo 64 recibe Ocarina of Time, considerado uno de los mejores videojuegos de la historia por sus mecánicas 3D.", image: "https://www.museumofplay.org/app/uploads/2021/08/Zelda-Ocarina-copy-384x497.jpg" },
+  { id: 49, year: 1999, title: "EverQuest (MMORPG)", desc: "EverQuest de Sony atrae a cientos de miles de jugadores a unirse a gremios y explorar el mundo en línea de Norrath.", image: "https://www.museumofplay.org/app/uploads/2021/08/1999-Ever-Quest-384x497.jpg" },
+  { id: 50, year: 2000, title: "The Sims (Will Wright)", desc: "The Sims simula la vida cotidiana y se convierte en el juego de PC más vendido de la historia.", image: "https://www.museumofplay.org/app/uploads/2021/08/2000-copy-384x497.png" },
+  { id: 51, year: 2001, title: "Microsoft Xbox & Halo", desc: "Microsoft ingresa a las consolas con Xbox y Halo: Combat Evolved, popularizando el juego en red.", image: "https://www.museumofplay.org/app/uploads/2021/08/2001-384x497.jpg" },
+  { id: 52, year: 2002, title: "America's Army & Serious Games", desc: "El ejército de EE. UU. lanza America's Army para reclutamiento y se crea la Serious Games Initiative.", image: "https://www.museumofplay.org/app/uploads/2021/08/2002-Army-copy-384x497.jpg" },
+  { id: 53, year: 2003, title: "Plataforma Steam (Valve)", desc: "Valve lanza Steam, revolucionando la distribución digital de videojuegos y actualizaciones en PC.", image: "https://www.museumofplay.org/app/uploads/2021/08/2003-Steam-384x497.jpg" },
+  { id: 54, year: 2004, title: "Nintendo DS (Doble Pantalla Táctil)", desc: "Nintendo lanza la portátil DS con doble pantalla y lápiz táctil, vendiendo más de 150 millones de unidades.", image: "https://www.museumofplay.org/app/uploads/2021/08/2004-Nintendo-DS-384x497.jpg" },
+  { id: 55, year: 2005, title: "Xbox 360 & HD Gaming", desc: "Microsoft lanza Xbox 360 aportando gráficos en alta definición y juego en línea con Xbox Live.", image: "https://www.museumofplay.org/app/uploads/2021/08/2005-copy-384x497.jpg" },
+  { id: 56, year: 2006, title: "Nintendo Wii & Controles de Movimiento", desc: "Nintendo presenta la Wii con mandos sensibles al movimiento, atrayendo a millones de nuevos jugadores.", image: "https://www.museumofplay.org/app/uploads/2021/08/2006-Wii-384x497.jpg" },
+  { id: 57, year: 2007, title: "Rock Band (Harmonix)", desc: "Rock Band permite a grupos de amigos tocar guitarra, bajo, batería y cantar simulando bandas de rock.", image: "https://www.museumofplay.org/app/uploads/2021/08/2007-Rock-band_0-384x497.jpg" },
+  { id: 58, year: 2008, title: "World of Warcraft 10M Suscriptores", desc: "WoW supera los 10 millones de suscriptores, estableciendo los MMO como fenómenos sociales mundiales.", image: "https://www.museumofplay.org/app/uploads/2021/08/WoW-individual-384x497.jpg" },
+  { id: 59, year: 2009, title: "Angry Birds & Farmville (Juegos Sociales)", desc: "Angry Birds en iPhone y Farmville en Facebook marcan el boom del gaming móvil y casual.", image: "https://www.museumofplay.org/app/uploads/2021/08/2009-copy-384x497.png" },
+  { id: 60, year: 2010, title: "Minecraft (Markus Persson)", desc: "Markus 'Notch' Persson lanza Minecraft, el fenómeno indie sandbox más vendido de la historia.", image: "https://www.museumofplay.org/app/uploads/2021/08/Minecraft-sq-384x497.jpg" },
+  { id: 61, year: 2011, title: "Skylanders (Juguetes Cobra Vida AR)", desc: "Skylanders combina figuras físicas con portales de lectura NFC para introducirlas en el juego.", image: "https://www.museumofplay.org/app/uploads/2021/08/2011-Skylanders-384x497.jpg" },
+  { id: 62, year: 2012, title: "Crowdfunding en Kickstarter (Oculus Rift)", desc: "Kickstarter permite recaudar millones para proyectos independientes como Oculus Rift y OUYA.", image: "https://www.museumofplay.org/app/uploads/2021/08/2012-OUYA-Kickstarter-copy-384x497.png" },
+  { id: 63, year: 2013, title: "The Last of Us & Narrativas Maduras", desc: "The Last of Us, Gone Home y Papers Please marcan el triunfo de historias maduras con dilemas éticos.", image: "https://www.museumofplay.org/app/uploads/2021/08/2013-Gone-Home-384x497.jpg" },
+  { id: 64, year: 2014, title: "Modelo Free-to-Play y Microtransacciones", desc: "Clash of Clans y World of Tanks consolidan el modelo gratuito con compras dentro de la app.", image: "https://www.museumofplay.org/app/uploads/2021/08/2014-World-of-Tanks-384x497.jpg" },
+  { id: 65, year: 2015, title: "Twitch & Auge de eSports", desc: "El Campeonato Mundial de League of Legends en Twitch supera en audiencia a grandes eventos deportivos.", image: "https://www.museumofplay.org/app/uploads/2021/08/2015-Twitch_0-384x497.jpg" },
+  { id: 66, year: 2016, title: "Pokémon GO (Realidad Aumentada)", desc: "Niantic lanza Pokémon GO, sacando a millones a las calles a capturar criaturas en el mundo real.", image: "https://www.museumofplay.org/app/uploads/2021/08/2016-Pokemon-Go-Horsea-384x497.jpg" },
+  { id: 67, year: 2017, title: "Nintendo Switch (Consola Híbrida)", desc: "Nintendo lanza la Switch junto a Zelda: Breath of the Wild, permitiendo jugar en TV y portátil.", image: "https://www.museumofplay.org/app/uploads/2021/08/2018-Nintendo-Switch-384x497.jpg" },
+  { id: 68, year: 2018, title: "Xbox Adaptive Controller (Accesibilidad)", desc: "Microsoft presenta el Adaptive Controller para permitir a jugadores con movilidad reducida jugar.", image: "https://www.museumofplay.org/app/uploads/2021/08/2018-Adaptive-controller-384x497.jpg" },
+  { id: 69, year: 2019, title: "Evento 'Black Hole' en Fortnite", desc: "Un asteroide destruye el mapa de Fortnite en un evento en vivo visto por millones antes del Capítulo 2.", image: "https://www.museumofplay.org/app/uploads/2021/08/Fortnite-384x497.jpg" },
+  { id: 70, year: 2020, title: "Animal Crossing, Among Us & Pandemia", desc: "La pandemia impulsa juegos sociales de convivencia y deducción para conectar amigos a distancia.", image: "https://www.museumofplay.org/app/uploads/2021/08/Animal-crossing-384x497.jpg" },
+  { id: 71, year: 2021, title: "Hades Gana el Premio Hugo", desc: "El roguelike Hades se convierte en el primer videojuego en recibir un prestigioso Premio Hugo de literatura.", image: "https://www.museumofplay.org/app/uploads/2022/02/Hades2-384x497.png" },
+  { id: 72, year: 2022, title: "NYT Adquiere Wordle", desc: "The New York Times compra el adictivo juego viral de acertijos diarios de 5 letras Wordle.", image: "https://www.museumofplay.org/app/uploads/2023/06/wordle-384x497.jpg" },
+  { id: 73, year: 2023, title: "Super Mario Movie & Serie The Last of Us", desc: "Los videojuegos triunfan en cine y TV con Mario Movie ($1.300M en taquilla) y la serie de HBO.", image: "https://www.museumofplay.org/app/uploads/2025/03/TheLastofUs_04-384x497.jpg" },
+  { id: 74, year: 2024, title: "Astro Bot (Homenaje a PlayStation)", desc: "Astro Bot es aclamado mundialmente como el juego de plataformas del año en homenaje al gaming.", image: "https://www.museumofplay.org/app/uploads/2025/08/Video-game-2024-384x497.jpg" }
 ];
 
-// Decadas soportadas en la línea de tiempo
-const DECADES = ["1940s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"];
+// EQUIPOS CONFIGURADOS
+const TEAMS = [
+  { id: 0, name: "Equipo Alfa", color: "var(--color-neon-pink)", icon: "🔴" },
+  { id: 1, name: "Equipo Beta", color: "var(--color-neon-cyan)", icon: "🔵" },
+  { id: 2, name: "Equipo Gamma", color: "var(--color-neon-yellow)", icon: "🟡" },
+  { id: 3, name: "Equipo Delta", color: "var(--color-neon-green)", icon: "🟢" }
+];
 
-// STATE MANAGEMENT
+// STATE MANAGEMENT FOR TIMELINE MULTIPLAYER GAME
 let gameState = {
-  studentName: "",
-  studentId: "",
-  deck: [],
-  currentCardIndex: 0,
-  xp: 0,
-  streak: 0,
-  totalPlaced: 0,
-  firstAttemptCorrect: 0,
-  totalAttempts: 0,
-  startTime: null,
-  timerInterval: null,
-  placedCardsByDecade: {},
-  firstAttemptMap: {} // cardId -> boolean
+  playerName: "",
+  playerId: "",
+  userTeamId: 0,
+  
+  reserveDeck: [],
+  tableCards: [], // [{ id, year, title, desc, image }, ...] sorted chronologically
+  
+  teamHands: {
+    0: [], 1: [], 2: [], 3: []
+  },
+  
+  teamStats: {
+    0: { correct: 0, errors: 0, attempts: 0 },
+    1: { correct: 0, errors: 0, attempts: 0 },
+    2: { correct: 0, errors: 0, attempts: 0 },
+    3: { correct: 0, errors: 0, attempts: 0 }
+  },
+
+  cardErrorTracker: {}, // cardId -> count of failed attempts
+  
+  currentTurnTeamIndex: 0,
+  activeRepresentativeName: "",
+  selectedHandCardId: null,
+  
+  turnTimeLeft: 60,
+  turnTimerInterval: null,
+  
+  teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
+  chatMessages: [],
+  isGameOver: false
 };
 
-// SIMULATED / LOCALSTORAGE DATA FOR TEACHER DASHBOARD
-let telemetryStore = JSON.parse(localStorage.getItem('telemetryStore') || "[]");
-
-// Initial mock data if store is empty
-if (telemetryStore.length === 0) {
-  telemetryStore = [
-    { studentName: "Valeria Ríos", studentId: "EST-104", scoreXP: 3400, totalCorrect: 28, errors: 3, accuracyPct: 90.3, avgSpeedSec: 3.4, timeElapsedSec: 110, timestamp: "22:45" },
-    { studentName: "Mateo Silva", studentId: "EST-209", scoreXP: 2900, totalCorrect: 24, errors: 7, accuracyPct: 77.4, avgSpeedSec: 4.1, timeElapsedSec: 135, timestamp: "22:48" },
-    { studentName: "Camila Torres", studentId: "EST-315", scoreXP: 3800, totalCorrect: 30, errors: 1, accuracyPct: 96.7, avgSpeedSec: 2.8, timeElapsedSec: 95, timestamp: "22:52" }
-  ];
-  localStorage.setItem('telemetryStore', JSON.stringify(telemetryStore));
-}
-
-/* ==========================================================================
-   WEB AUDIO API - SYNTHESIZER FOR RETRO SFX
-   ========================================================================== */
+// AUDIO SYNTHESIZER
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playSynthSound(type) {
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-
   const now = audioCtx.currentTime;
 
   if (type === 'success') {
-    // Upward chiptune arpeggio
     osc.type = 'square';
-    osc.frequency.setValueAtTime(523.25, now); // C5
-    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-    osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+    osc.frequency.setValueAtTime(523.25, now);
+    osc.frequency.setValueAtTime(659.25, now + 0.08);
+    osc.frequency.setValueAtTime(783.99, now + 0.16);
+    osc.frequency.setValueAtTime(1046.50, now + 0.24);
     gain.gain.setValueAtTime(0.15, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
     osc.start(now);
     osc.stop(now + 0.4);
-  } else if (type === 'hint') {
-    // Gentle warning tone for hints (no punishment sound)
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(329.63, now); // E4
-    osc.frequency.setValueAtTime(293.66, now + 0.12); // D4
+  } else if (type === 'error') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.setValueAtTime(180, now + 0.12);
     gain.gain.setValueAtTime(0.2, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
     osc.start(now);
     osc.stop(now + 0.35);
   } else if (type === 'victory') {
-    // Fanfare sound
-    osc.type = 'sine';
+    osc.type = 'triangle';
     osc.frequency.setValueAtTime(440, now);
     osc.frequency.setValueAtTime(554.37, now + 0.15);
     osc.frequency.setValueAtTime(659.25, now + 0.3);
     osc.frequency.setValueAtTime(880, now + 0.45);
-    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.setValueAtTime(0.25, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
     osc.start(now);
     osc.stop(now + 0.8);
   }
 }
 
+// CONFETTI SYSTEM NATIVO CON CANVAS
+function launchConfetti() {
+  const canvas = document.getElementById("confettiCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = [];
+  const colors = ['#00f3ff', '#ff0055', '#ffea00', '#00ff66', '#9d00ff'];
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx: (Math.random() - 0.5) * 16,
+      vy: (Math.random() - 0.8) * 16,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: 1
+    });
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let active = false;
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.3; // Gravity
+      p.alpha -= 0.015;
+
+      if (p.alpha > 0) {
+        active = true;
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+    });
+
+    if (active) {
+      requestAnimationFrame(render);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  render();
+}
+
 /* ==========================================================================
    INITIALIZATION & NAVIGATION
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
-  initTimelineGrid();
-  startDashboardPolling();
+  renderTeacherDashboard();
+  setInterval(renderTeacherDashboard, 5000);
 });
 
 function switchView(viewName) {
@@ -156,43 +249,63 @@ function switchView(viewName) {
 }
 
 /* ==========================================================================
-   STUDENT MINIGAME LOGIC
+   GAMEPLAY ENGINE - TIMELINE BOARD GAME
    ========================================================================== */
 
 function handleStartGame(e) {
   e.preventDefault();
   const name = document.getElementById("inputStudentName").value.trim();
   const id = document.getElementById("inputStudentId").value.trim();
+  const teamId = parseInt(document.getElementById("selectTeam").value, 10);
 
   if (!name || !id) return;
 
-  gameState.studentName = name;
-  gameState.studentId = id;
+  gameState.playerName = name;
+  gameState.playerId = id;
+  gameState.userTeamId = teamId;
 
-  // Hide modal
   document.getElementById("modalStudentRegister").classList.remove("modal-overlay--active");
 
-  // Reset Game State
-  gameState.deck = shuffleArray([...HISTORICAL_EVENTS]);
-  gameState.currentCardIndex = 0;
-  gameState.xp = 0;
-  gameState.streak = 0;
-  gameState.totalPlaced = 0;
-  gameState.firstAttemptCorrect = 0;
-  gameState.totalAttempts = 0;
-  gameState.startTime = Date.now();
-  gameState.placedCardsByDecade = {};
-  gameState.firstAttemptMap = {};
+  // Initialize Game State
+  initNewGame();
+}
 
-  DECADES.forEach(d => gameState.placedCardsByDecade[d] = []);
+function initNewGame() {
+  gameState.reserveDeck = shuffleArray([...HISTORICAL_EVENTS]);
+  gameState.tableCards = [];
+  gameState.teamHands = { 0: [], 1: [], 2: [], 3: [] };
+  gameState.teamStats = {
+    0: { correct: 0, errors: 0, attempts: 0 },
+    1: { correct: 0, errors: 0, attempts: 0 },
+    2: { correct: 0, errors: 0, attempts: 0 },
+    3: { correct: 0, errors: 0, attempts: 0 }
+  };
+  gameState.cardErrorTracker = {};
+  gameState.currentTurnTeamIndex = Math.floor(Math.random() * 4); // Random starting team
+  gameState.selectedHandCardId = null;
+  gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  gameState.isGameOver = false;
+
+  // 1. ANCLA INICIAL DE LA MESA: 1 carta con la FECHA VISIBLE
+  const anchorCard = gameState.reserveDeck.pop();
+  gameState.tableCards.push(anchorCard);
+
+  // 2. MANO INICIAL: 4 cartas a cada uno de los 4 equipos
+  for (let t = 0; t < 4; t++) {
+    for (let c = 0; c < 4; c++) {
+      if (gameState.reserveDeck.length > 0) {
+        gameState.teamHands[t].push(gameState.reserveDeck.pop());
+      }
+    }
+  }
+
+  // Representative Name for HUD
+  gameState.activeRepresentativeName = `${gameState.playerName} (${TEAMS[gameState.userTeamId].name})`;
 
   updateHud();
-  renderTimelineSlots();
-  renderActiveCard();
-
-  // Start Timer
-  if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-  gameState.timerInterval = setInterval(updateTimerDisplay, 1000);
+  renderTimelineTable();
+  renderTeamHand();
+  startTurnTimer();
 }
 
 function shuffleArray(arr) {
@@ -204,244 +317,397 @@ function shuffleArray(arr) {
 }
 
 function updateHud() {
-  document.getElementById("hudXp").textContent = `${gameState.xp} XP`;
-  document.getElementById("hudStreak").textContent = `${gameState.streak}x`;
-  document.getElementById("hudProgress").textContent = `${gameState.totalPlaced} / ${HISTORICAL_EVENTS.length}`;
+  const userTeam = TEAMS[gameState.userTeamId];
+  document.getElementById("hudTeamName").textContent = `${userTeam.icon} ${userTeam.name}`;
+  
+  const currentTeam = TEAMS[gameState.currentTurnTeamIndex];
+  document.getElementById("hudActiveTurn").textContent = `${currentTeam.icon} ${currentTeam.name}`;
+  
+  const currentHand = gameState.teamHands[gameState.userTeamId];
+  document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano`;
 }
 
-function updateTimerDisplay() {
-  if (!gameState.startTime) return;
-  const elapsedSec = Math.floor((Date.now() - gameState.startTime) / 1000);
-  const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
-  const secs = String(elapsedSec % 60).padStart(2, '0');
-  document.getElementById("hudTimer").textContent = `${mins}:${secs}`;
-}
+// ⏱️ TEMPORIZADOR DE TURNO DE 1 MINUTO (60 SEGUNDOS)
+function startTurnTimer() {
+  if (gameState.turnTimerInterval) clearInterval(gameState.turnTimerInterval);
+  gameState.turnTimeLeft = 60;
+  updateTimerUI();
 
-// Render active card at top arena
-function renderActiveCard() {
-  const container = document.getElementById("cardDeckContainer");
-  container.innerHTML = "";
+  gameState.turnTimerInterval = setInterval(() => {
+    gameState.turnTimeLeft--;
+    updateTimerUI();
 
-  if (gameState.currentCardIndex >= gameState.deck.length) {
-    // Game completed!
-    finishGame();
-    return;
-  }
-
-  const cardData = gameState.deck[gameState.currentCardIndex];
-
-  const cardEl = document.createElement("div");
-  cardEl.className = "event-card";
-  if (cardData.showHint) {
-    cardEl.classList.add("event-card--hint");
-  }
-  cardEl.draggable = true;
-  cardEl.id = `activeCard-${cardData.id}`;
-
-  cardEl.innerHTML = `
-    <div class="event-card__header">
-      <span class="event-card__badge">${cardData.icon} EVENTO HISTÓRICO</span>
-      <span style="font-size: 0.8rem; color: var(--color-text-muted);">#${gameState.currentCardIndex + 1}</span>
-    </div>
-    <div class="event-card__title">${cardData.title}</div>
-    <div class="event-card__description">${cardData.desc}</div>
-    ${cardData.showHint ? `
-      <div class="event-card__hint-box">
-        <span class="event-card__hint-box-icon">💡</span>
-        <div><strong>Retroalimentación:</strong> ${cardData.hint}</div>
-      </div>
-    ` : ''}
-  `;
-
-  // Drag listeners
-  cardEl.addEventListener("dragstart", (e) => {
-    e.dataTransfer.setData("text/plain", cardData.decade);
-    cardEl.classList.add("event-card--dragging");
-  });
-
-  cardEl.addEventListener("dragend", () => {
-    cardEl.classList.remove("event-card--dragging");
-  });
-
-  container.appendChild(cardEl);
-}
-
-// Build Timeline Decades Grid (1940s - 2020s)
-function initTimelineGrid() {
-  const grid = document.getElementById("timelineGrid");
-  grid.innerHTML = "";
-
-  DECADES.forEach(decade => {
-    const slot = document.createElement("div");
-    slot.className = "decade-slot";
-    slot.dataset.decade = decade;
-
-    slot.innerHTML = `
-      <div class="decade-slot__header">${decade}</div>
-      <div class="decade-slot__cards-list" id="slotList-${decade}"></div>
-    `;
-
-    // Click handler for accessibility / mobile
-    slot.addEventListener("click", () => handlePlaceCard(decade));
-
-    // Drag & Drop handlers
-    slot.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      slot.classList.add("decade-slot--drag-over");
-    });
-
-    slot.addEventListener("dragleave", () => {
-      slot.classList.remove("decade-slot--drag-over");
-    });
-
-    slot.addEventListener("drop", (e) => {
-      e.preventDefault();
-      slot.classList.remove("decade-slot--drag-over");
-      handlePlaceCard(decade);
-    });
-
-    grid.appendChild(slot);
-  });
-}
-
-function renderTimelineSlots() {
-  DECADES.forEach(decade => {
-    const listEl = document.getElementById(`slotList-${decade}`);
-    if (!listEl) return;
-    listEl.innerHTML = "";
-
-    const cards = gameState.placedCardsByDecade[decade] || [];
-    cards.forEach(card => {
-      const item = document.createElement("div");
-      item.className = "placed-card";
-      item.innerHTML = `
-        <span class="placed-card__year">${card.year}</span>
-        <span class="placed-card__title">${card.title}</span>
-      `;
-      listEl.appendChild(item);
-    });
-  });
-}
-
-/* CORE PEDAGOGIC EVALUATION (Continuous Feedback vs. Harsh Judgment) */
-function handlePlaceCard(selectedDecade) {
-  if (gameState.currentCardIndex >= gameState.deck.length) return;
-
-  const currentCard = gameState.deck[gameState.currentCardIndex];
-  gameState.totalAttempts++;
-
-  // Track if this is 1st attempt for this specific card
-  if (gameState.firstAttemptMap[currentCard.id] === undefined) {
-    gameState.firstAttemptMap[currentCard.id] = (selectedDecade === currentCard.decade);
-  }
-
-  if (selectedDecade === currentCard.decade) {
-    // SUCCESS!
-    playSynthSound('success');
-
-    // XP calculation: 100 base + streak bonus
-    const streakBonus = gameState.streak * 20;
-    const gainedXp = 100 + streakBonus;
-    gameState.xp += gainedXp;
-    gameState.streak++;
-    gameState.totalPlaced++;
-
-    if (gameState.firstAttemptMap[currentCard.id]) {
-      gameState.firstAttemptCorrect++;
+    if (gameState.turnTimeLeft <= 0) {
+      clearInterval(gameState.turnTimerInterval);
+      handleTurnTimeout();
     }
+  }, 1000);
+}
 
-    // Place card in decade rack
-    gameState.placedCardsByDecade[selectedDecade].push(currentCard);
-    renderTimelineSlots();
+function updateTimerUI() {
+  document.getElementById("hudTurnTimer").textContent = `${gameState.turnTimeLeft}s`;
+  const pct = (gameState.turnTimeLeft / 60) * 100;
+  document.getElementById("hudTimerFill").style.width = `${pct}%`;
+}
 
-    // Advance to next card
-    gameState.currentCardIndex++;
-    updateHud();
-    renderActiveCard();
-
-  } else {
-    // INCORRECT DECADE - FORMATIVE HINT FEEDBACK (NO PUNISHMENT)
-    playSynthSound('hint');
-    gameState.streak = 0; // Reset streak, but DO NOT subtract XP or fail student
-
-    // Mark hint as active on this card
-    currentCard.showHint = true;
-
-    // Requeue card to end of deck so student gets another attempt to learn!
-    const failedCard = gameState.deck.splice(gameState.currentCardIndex, 1)[0];
-    gameState.deck.push(failedCard);
-
-    updateHud();
-    renderActiveCard();
-  }
+function handleTurnTimeout() {
+  playSynthSound('error');
+  addChatMessage("🤖 Sistema", `¡Tiempo agotado (1 min)! ${TEAMS[gameState.currentTurnTeamIndex].name} pierde el turno.`);
+  gameState.teamStreaks[gameState.currentTurnTeamIndex] = 0;
+  advanceTurn();
 }
 
 /* ==========================================================================
-   END OF GAME DIAGNOSTIC & WEBHOOK TELEMETRY
+   MESA CENTRAL CON PUNTOS DE INSERCIÓN [ + ]
    ========================================================================== */
-function finishGame() {
-  clearInterval(gameState.timerInterval);
-  playSynthSound('victory');
+function renderTimelineTable() {
+  const track = document.getElementById("timelineTrack");
+  track.innerHTML = "";
 
-  const totalTimeSec = Math.max(1, Math.floor((Date.now() - gameState.startTime) / 1000));
-  const accuracyPct = Math.round((gameState.firstAttemptCorrect / HISTORICAL_EVENTS.length) * 100);
-  const avgSpeedSec = parseFloat((totalTimeSec / gameState.totalAttempts).toFixed(1));
+  const count = gameState.tableCards.length;
 
-  // Render Diagnostic Modal
-  document.getElementById("diagAccuracy").textContent = `${accuracyPct}%`;
-  document.getElementById("diagAccuracySub").textContent = `${gameState.firstAttemptCorrect} de ${HISTORICAL_EVENTS.length} al primer intento`;
-  document.getElementById("diagSpeed").textContent = `${avgSpeedSec}s`;
-  document.getElementById("diagTotalXp").textContent = `⚡ ${gameState.xp} XP Acumulados`;
+  for (let i = 0; i <= count; i++) {
+    // 1. Insertion Slot [+]
+    const slot = document.createElement("div");
+    slot.className = "insertion-slot";
+    slot.dataset.slotIndex = i;
 
-  let msg = "";
-  if (accuracyPct >= 85) {
-    msg = "🌟 ¡Extraordinario dominio histórico y excelente velocidad de decisión!";
-  } else if (accuracyPct >= 60) {
-    msg = "👍 ¡Buen desempeño! Has utilizado las pistas de manera efectiva para aprender.";
-  } else {
-    msg = "💡 ¡Gran demostración de perseverancia! El ensayo y error ha reforzado tu aprendizaje.";
+    let slotText = "[ + ]";
+    if (i === 0) slotText += "<span class='insertion-slot__label'>Antes</span>";
+    else if (i === count) slotText += "<span class='insertion-slot__label'>Después</span>";
+    else slotText += "<span class='insertion-slot__label'>Entre</span>";
+
+    slot.innerHTML = slotText;
+    slot.addEventListener("click", () => handleSlotClick(i));
+    track.appendChild(slot);
+
+    // 2. Timeline Card (if i < count)
+    if (i < count) {
+      const card = gameState.tableCards[i];
+      const cardEl = document.createElement("div");
+      cardEl.className = "timeline-card";
+
+      cardEl.innerHTML = `
+        <div class="timeline-card__year-badge">${card.year}</div>
+        <div class="timeline-card__image-container">
+          <img src="${card.image}" alt="${card.title}" class="timeline-card__image" onerror="this.src='https://via.placeholder.com/150x100?text=MuseumOfPlay'">
+        </div>
+        <div class="timeline-card__title">${card.title}</div>
+      `;
+      track.appendChild(cardEl);
+    }
   }
-  document.getElementById("diagFeedbackMessage").textContent = msg;
 
-  // Open Modal
-  document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
-
-  // Construct Telemetry JSON Payload
-  const telemetryData = {
-    studentName: gameState.studentName,
-    studentId: gameState.studentId,
-    scoreXP: gameState.xp,
-    totalCorrect: gameState.firstAttemptCorrect,
-    errors: gameState.totalAttempts - HISTORICAL_EVENTS.length,
-    accuracyPct: accuracyPct,
-    avgSpeedSec: avgSpeedSec,
-    timeElapsedSec: totalTimeSec,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  };
-
-  // Save to local store for live dashboard
-  telemetryStore.push(telemetryData);
-  localStorage.setItem('telemetryStore', JSON.stringify(telemetryStore));
-
-  // ASYNC FETCH (POST) TO WEBHOOK_URL
-  sendWebhookTelemetry(telemetryData);
+  document.getElementById("kpiCardsInTable").textContent = count;
 }
 
-async function sendWebhookTelemetry(payload) {
-  if (!WEBHOOK_URL) {
-    console.log("ℹ️ WEBHOOK_URL está vacía. Telemetría guardada localmente para el Dashboard en Vivo.");
+/* ==========================================================================
+   MANO DEL EQUIPO (4 CARTAS CON CARA OCULTA)
+   ========================================================================== */
+function renderTeamHand() {
+  const grid = document.getElementById("teamHandGrid");
+  grid.innerHTML = "";
+
+  const hand = gameState.teamHands[gameState.userTeamId];
+
+  if (hand.length === 0) {
+    grid.innerHTML = `<div style="color: var(--color-neon-green); font-family: var(--font-heading);">¡Mano vacía! Tu equipo ha liberado todas sus cartas.</div>`;
     return;
   }
 
+  hand.forEach(card => {
+    const cardEl = document.createElement("div");
+    cardEl.className = "hand-card";
+    if (gameState.selectedHandCardId === card.id) {
+      cardEl.classList.add("hand-card--selected");
+    }
+
+    cardEl.innerHTML = `
+      <div class="hand-card__image-box">
+        <img src="${card.image}" alt="${card.title}" class="hand-card__image" onerror="this.src='https://via.placeholder.com/150x100?text=MuseumOfPlay'">
+      </div>
+      <div class="hand-card__title">${card.title}</div>
+      <div class="hand-card__hidden-year">❓ FECHA OCULTA</div>
+    `;
+
+    cardEl.addEventListener("click", () => {
+      gameState.selectedHandCardId = card.id;
+      renderTeamHand();
+    });
+
+    grid.appendChild(cardEl);
+  });
+}
+
+/* ==========================================================================
+   INSERCIÓN DE CARTA Y VALIDACIÓN CRONOLÓGICA
+   ========================================================================== */
+function handleSlotClick(slotIndex) {
+  if (gameState.isGameOver) return;
+  if (!gameState.selectedHandCardId) {
+    alert("¡Selecciona primero una carta de tu mano antes de hacer clic en un slot [+]!");
+    return;
+  }
+
+  const activeTeamIndex = gameState.currentTurnTeamIndex;
+  const activeHand = gameState.teamHands[activeTeamIndex];
+  const cardIndexInHand = activeHand.findIndex(c => c.id === gameState.selectedHandCardId);
+
+  if (cardIndexInHand === -1) return;
+
+  const cardToPlace = activeHand[cardIndexInHand];
+  gameState.teamStats[activeTeamIndex].attempts++;
+
+  // VALIDACIÓN DE POSICIÓN CORRECTA ENTRE SLOTS
+  // slotIndex === 0: debe ser <= table[0].year
+  // slotIndex === count: debe ser >= table[count-1].year
+  // 0 < slotIndex < count: debe ser table[slotIndex-1].year <= card.year && card.year <= table[slotIndex].year
+  const table = gameState.tableCards;
+  const count = table.length;
+
+  let isCorrect = false;
+  if (slotIndex === 0) {
+    isCorrect = cardToPlace.year <= table[0].year;
+  } else if (slotIndex === count) {
+    isCorrect = cardToPlace.year >= table[count - 1].year;
+  } else {
+    isCorrect = (table[slotIndex - 1].year <= cardToPlace.year) && (cardToPlace.year <= table[slotIndex].year);
+  }
+
+  if (isCorrect) {
+    // ACIERTO: La carta se queda en la mesa en su posición correcta
+    playSynthSound('success');
+    launchConfetti();
+    gameState.teamStats[activeTeamIndex].correct++;
+    gameState.teamStreaks[activeTeamIndex]++;
+
+    // Remover de la mano
+    activeHand.splice(cardIndexInHand, 1);
+    gameState.selectedHandCardId = null;
+
+    // Insertar en la mesa
+    gameState.tableCards.splice(slotIndex, 0, cardToPlace);
+
+    // Verificar rachas arcade
+    triggerStreakOverlay(gameState.teamStreaks[activeTeamIndex]);
+
+    addChatMessage("🤖 Sistema", `¡ACIERTO! ${TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente.`);
+
+  } else {
+    // FALLO: La carta errónea vuelve al mazo de reserva, se roba 1 nueva
+    playSynthSound('error');
+    gameState.teamStats[activeTeamIndex].errors++;
+    gameState.teamStreaks[activeTeamIndex] = 0;
+
+    // Incrementar tracker de error de la carta
+    gameState.cardErrorTracker[cardToPlace.id] = (gameState.cardErrorTracker[cardToPlace.id] || 0) + 1;
+
+    // Retornar a mazo de reserva
+    activeHand.splice(cardIndexInHand, 1);
+    gameState.reserveDeck.push(cardToPlace);
+    gameState.reserveDeck = shuffleArray(gameState.reserveDeck);
+
+    // Robar 1 nueva carta (diferente)
+    if (gameState.reserveDeck.length > 0) {
+      const newCard = gameState.reserveDeck.pop();
+      activeHand.push(newCard);
+    }
+
+    gameState.selectedHandCardId = null;
+    addChatMessage("🤖 Sistema", `❌ FALLO. ${TEAMS[activeTeamIndex].name} erró el año de '${cardToPlace.title}' (${cardToPlace.year}). La carta volvió al mazo y robaron una nueva.`);
+  }
+
+  // Renderizar estado de mesa y mano
+  renderTimelineTable();
+  renderTeamHand();
+
+  // Verificar condición de victoria al terminar el turno
+  checkEndGameOrAdvanceTurn();
+}
+
+function triggerStreakOverlay(streakCount) {
+  const overlay = document.getElementById("streakOverlay");
+  if (!overlay) return;
+
+  let text = "";
+  if (streakCount === 2) text = "🔥 DOBLE HIT";
+  else if (streakCount === 3) text = "⚡ ¡¡TRIPLE HIT!!";
+  else if (streakCount >= 4) text = "☠️ ¡¡MOOOONSTER KILL!!";
+  else return;
+
+  overlay.textContent = text;
+  overlay.className = "streak-overlay streak-overlay--active";
+
+  setTimeout(() => {
+    overlay.className = "streak-overlay";
+  }, 1800);
+}
+
+function checkEndGameOrAdvanceTurn() {
+  // Verificar si algún equipo se quedó sin cartas (0 en mano)
+  const winningTeams = [];
+  for (let t = 0; t < 4; t++) {
+    if (gameState.teamHands[t].length === 0) {
+      winningTeams.push(t);
+    }
+  }
+
+  if (winningTeams.length > 0) {
+    // Fin del juego o desempate
+    gameState.isGameOver = true;
+    clearInterval(gameState.turnTimerInterval);
+
+    let winnerText = "";
+    if (winningTeams.length === 1) {
+      const winner = TEAMS[winningTeams[0]];
+      winnerText = `🏆 ¡${winner.name} HA GANADO LA PARTIDA!`;
+      playSynthSound('victory');
+    } else {
+      winnerText = `⚖️ ¡EMPATE entre ${winningTeams.map(t => TEAMS[t].name).join(", ")}!`;
+    }
+
+    document.getElementById("diagTitle").textContent = winnerText;
+    document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
+
+    // Telemetría JSON
+    sendWebhookTelemetry();
+  } else {
+    advanceTurn();
+  }
+}
+
+function advanceTurn() {
+  gameState.currentTurnTeamIndex = (gameState.currentTurnTeamIndex + 1) % 4;
+  updateHud();
+  startTurnTimer();
+}
+
+/* ==========================================================================
+   CHAT DE EQUIPO EN VIVO
+   ========================================================================== */
+function handleSendChatMessage(e) {
+  e.preventDefault();
+  const input = document.getElementById("chatInput");
+  const msgText = input.value.trim();
+  if (!msgText) return;
+
+  const sender = `${gameState.playerName} (${TEAMS[gameState.userTeamId].name})`;
+  addChatMessage(sender, msgText);
+  input.value = "";
+}
+
+function addChatMessage(sender, text) {
+  const container = document.getElementById("chatMessages");
+  const msgEl = document.createElement("div");
+  msgEl.className = "chat-msg";
+  msgEl.innerHTML = `
+    <span class="chat-msg__sender">${sender}:</span>
+    <span>${text}</span>
+  `;
+  container.appendChild(msgEl);
+  container.scrollTop = container.scrollHeight;
+}
+
+/* ==========================================================================
+   TEACHER DASHBOARD & HARDEST CARDS METRICS
+   ========================================================================== */
+function renderTeacherDashboard() {
+  let totalAttempts = 0;
+  let totalCorrect = 0;
+
+  for (let t = 0; t < 4; t++) {
+    totalAttempts += gameState.teamStats[t].attempts;
+    totalCorrect += gameState.teamStats[t].correct;
+  }
+
+  const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+  document.getElementById("kpiAvgAccuracy").textContent = `${overallAccuracy}%`;
+
+  // Render Leaderboard
+  const tbody = document.getElementById("leaderboardBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  TEAMS.forEach(team => {
+    const stats = gameState.teamStats[team.id];
+    const handCount = gameState.teamHands[team.id].length;
+    const eff = stats.attempts > 0 ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong style="color: ${team.color};">${team.icon} ${team.name}</strong></td>
+      <td style="font-family: var(--font-heading);">${handCount} cartas</td>
+      <td style="font-family: var(--font-heading); color: var(--color-neon-cyan);">${eff}%</td>
+      <td>
+        <div class="progress-bar">
+          <div class="progress-bar__fill--success" style="width: ${eff}%;"></div>
+          <div class="progress-bar__fill--danger" style="width: ${100 - eff}%;"></div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Render Hardest Cards (Most Error-Prone Events)
+  const hardestBody = document.getElementById("hardestCardsBody");
+  if (!hardestBody) return;
+  hardestBody.innerHTML = "";
+
+  const hardestList = Object.keys(gameState.cardErrorTracker)
+    .map(cardId => {
+      const card = HISTORICAL_EVENTS.find(c => c.id === parseInt(cardId, 10));
+      return { card, errors: gameState.cardErrorTracker[cardId] };
+    })
+    .sort((a, b) => b.errors - a.errors)
+    .slice(0, 5);
+
+  if (hardestList.length === 0) {
+    hardestBody.innerHTML = `<tr><td colspan="3" style="color: var(--color-text-muted); text-align: center;">Sin fallos registrados aún.</td></tr>`;
+  } else {
+    hardestList.forEach(item => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${item.card.title}</strong> (${item.card.year})</td>
+        <td style="font-family: var(--font-heading); color: var(--color-neon-pink); font-weight: bold;">${item.errors} fallos</td>
+        <td><span style="background: rgba(255, 0, 85, 0.2); color: var(--color-neon-pink); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">ALTA</span></td>
+      `;
+      hardestBody.appendChild(tr);
+    });
+  }
+}
+
+// SIMULATOR BUTTON FOR CLASSROOM DEMOS
+function simulateStudentSubmission() {
+  if (gameState.isGameOver) return;
+  const mockTeamIndex = Math.floor(Math.random() * 4);
+  const slots = gameState.tableCards.length + 1;
+  const randomSlot = Math.floor(Math.random() * slots);
+
+  if (gameState.teamHands[mockTeamIndex].length > 0) {
+    gameState.selectedHandCardId = gameState.teamHands[mockTeamIndex][0].id;
+    gameState.currentTurnTeamIndex = mockTeamIndex;
+    handleSlotClick(randomSlot);
+  }
+}
+
+// ASYNC FETCH POST TO WEBHOOK_URL
+async function sendWebhookTelemetry() {
+  if (!WEBHOOK_URL) return;
+  const payload = {
+    teamStats: gameState.teamStats,
+    tableCardsCount: gameState.tableCards.length,
+    cardErrors: gameState.cardErrorTracker,
+    timestamp: new Date().toISOString()
+  };
+
   try {
-    const response = await fetch(WEBHOOK_URL, {
+    await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    console.log("✅ Telemetría enviada con éxito al Webhook:", response.status);
-  } catch (err) {
-    console.warn("⚠️ No se pudo enviar la telemetría al Webhook (servidor offline o URL inválida). Fallback local activo.", err);
+  } catch (e) {
+    console.warn("Webhook no disponible. Telemetría guardada localmente.");
   }
 }
 
@@ -453,137 +719,4 @@ function restartGame() {
 function closeDiagnosticAndGoDashboard() {
   document.getElementById("modalDiagnostic").classList.remove("modal-overlay--active");
   switchView('teacher');
-}
-
-/* ==========================================================================
-   TEACHER LIVE DASHBOARD ENGINE (HTTP POLLING)
-   ========================================================================== */
-
-function startDashboardPolling() {
-  // Initial render
-  renderTeacherDashboard();
-
-  // HTTP Polling every 5 seconds
-  setInterval(async () => {
-    if (WEBHOOK_URL) {
-      try {
-        const res = await fetch(WEBHOOK_URL, { method: 'GET' });
-        if (res.ok) {
-          const remoteData = await res.json();
-          if (Array.isArray(remoteData)) {
-            telemetryStore = remoteData;
-          }
-        }
-      } catch (e) {
-        // Fallback to local store silently
-      }
-    }
-    renderTeacherDashboard();
-  }, 5000);
-}
-
-function renderTeacherDashboard() {
-  const activeCount = telemetryStore.length;
-
-  if (activeCount === 0) {
-    document.getElementById("kpiActiveStudents").textContent = "0";
-    document.getElementById("kpiAvgAccuracy").textContent = "0%";
-    document.getElementById("kpiAvgTime").textContent = "0s";
-    document.getElementById("leaderboardBody").innerHTML = `
-      <tr><td colspan="5" style="text-align: center; color: var(--color-text-muted);">Sin datos de estudiantes aún. Usa 'Simular Estudiante' para probar.</td></tr>
-    `;
-    return;
-  }
-
-  // Calculate KPIs
-  const totalAcc = telemetryStore.reduce((sum, item) => sum + item.accuracyPct, 0);
-  const avgAcc = Math.round(totalAcc / activeCount);
-
-  const totalTime = telemetryStore.reduce((sum, item) => sum + item.timeElapsedSec, 0);
-  const avgTime = Math.round(totalTime / activeCount);
-
-  document.getElementById("kpiActiveStudents").textContent = activeCount;
-  document.getElementById("kpiAvgAccuracy").textContent = `${avgAcc}%`;
-  document.getElementById("kpiAvgTime").textContent = `${avgTime}s`;
-
-  // Sort Leaderboard: (1) Correct answers desc, (2) Total Time asc
-  const sorted = [...telemetryStore].sort((a, b) => {
-    if (b.totalCorrect !== a.totalCorrect) {
-      return b.totalCorrect - a.totalCorrect;
-    }
-    return a.timeElapsedSec - b.timeElapsedSec;
-  });
-
-  // Render Table
-  const tbody = document.getElementById("leaderboardBody");
-  tbody.innerHTML = "";
-
-  sorted.forEach((student, idx) => {
-    const rankClass = idx === 0 ? "student-badge__rank--1" : (idx === 1 ? "student-badge__rank--2" : (idx === 2 ? "student-badge__rank--3" : ""));
-    const totalEvents = HISTORICAL_EVENTS.length;
-    const successWidth = Math.min(100, Math.round((student.totalCorrect / totalEvents) * 100));
-    const dangerWidth = Math.max(0, 100 - successWidth);
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>
-        <div class="student-badge">
-          <div class="student-badge__rank ${rankClass}">${idx + 1}</div>
-          <div class="student-badge__info">
-            <span class="student-badge__name">${student.studentName}</span>
-            <span class="student-badge__id">ID: ${student.studentId} • ${student.timestamp}</span>
-          </div>
-        </div>
-      </td>
-      <td style="font-family: var(--font-heading); color: var(--color-neon-yellow); font-weight: bold;">
-        ⚡ ${student.scoreXP} XP
-      </td>
-      <td style="min-width: 180px;">
-        <div class="progress-bar">
-          <div class="progress-bar__fill--success" style="width: ${successWidth}%;"></div>
-          <div class="progress-bar__fill--danger" style="width: ${dangerWidth}%;"></div>
-        </div>
-        <div class="progress-bar__text">
-          <span>${student.totalCorrect} aciertos</span>
-          <span>${student.accuracyPct}% prec.</span>
-        </div>
-      </td>
-      <td style="font-family: var(--font-heading); color: var(--color-neon-cyan);">
-        ${student.avgSpeedSec}s/tarjeta
-      </td>
-      <td style="font-family: var(--font-heading); color: #fff;">
-        ${student.timeElapsedSec}s
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// SIMULATOR BUTTON FOR CLASSROOM DEMOS
-function simulateStudentSubmission() {
-  const sampleNames = ["Gabriel Medina", "Elena Rostova", "Lucas Paz", "Sofia Chen", "Diego Alarcón"];
-  const name = sampleNames[Math.floor(Math.random() * sampleNames.length)];
-  const id = `EST-${Math.floor(100 + Math.random() * 900)}`;
-
-  const totalCorrect = Math.floor(20 + Math.random() * 14); // 20 to 34
-  const accuracyPct = Math.round((totalCorrect / HISTORICAL_EVENTS.length) * 100);
-  const timeElapsedSec = Math.floor(80 + Math.random() * 80);
-  const avgSpeedSec = parseFloat((timeElapsedSec / HISTORICAL_EVENTS.length).toFixed(1));
-  const scoreXP = totalCorrect * 100 + Math.floor(Math.random() * 800);
-
-  const mockPayload = {
-    studentName: name,
-    studentId: id,
-    scoreXP: scoreXP,
-    totalCorrect: totalCorrect,
-    errors: HISTORICAL_EVENTS.length - totalCorrect,
-    accuracyPct: accuracyPct,
-    avgSpeedSec: avgSpeedSec,
-    timeElapsedSec: timeElapsedSec,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  };
-
-  telemetryStore.push(mockPayload);
-  localStorage.setItem('telemetryStore', JSON.stringify(telemetryStore));
-  renderTeacherDashboard();
 }
