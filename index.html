@@ -46,9 +46,9 @@
         <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
           <span>🎮</span> Juego por Equipos
         </button>
-        <!-- BOTÓN DASHBOARD PROFESOR: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
-        <button class="app-header__tab-btn" id="tabTeacherBtn" style="display: none;" onclick="switchView('teacher')">
-          <span>📊</span> Dashboard Profesor
+        <!-- PESTAÑA DE DASHBOARD: VISIBLE PARA TODOS (Nombre dinámico: Tablero General para Alumno / Dashboard Profesor para Docente) -->
+        <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
+          <span id="tabTeacherBtnLabel">📊 Tablero General</span>
         </button>
       </nav>
 
@@ -67,7 +67,7 @@
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
-        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR -->
+        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
         <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
           🔄 Cambiar Modo / Crear Partida
         </button>
@@ -181,14 +181,14 @@
 
     </section>
 
-    <!-- VIEW 2: TEACHER LIVE DASHBOARD -->
+    <!-- VIEW 2: METRICS DASHBOARD (TABLERO GENERAL DE CLASE) -->
     <section class="view-section" id="teacherView">
       
       <div class="dashboard">
         <!-- TOP CONTROL BAR -->
         <div class="dashboard__top-bar">
           <div class="dashboard__title">
-            <span>📺</span> PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO
+            <span id="dashboardTitleText">📺 PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO</span>
           </div>
 
           <div style="display: flex; align-items: center; gap: 1rem;">
@@ -197,7 +197,8 @@
               <span>EN VIVO - Actualizando...</span>
             </div>
 
-            <button class="btn-primary" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
+            <!-- BOTÓN DE CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+            <button class="btn-primary" id="btnTeacherDashboardCreateMatch" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
               ⚙️ Crear Nueva Partida / Cambiar Modo
             </button>
           </div>

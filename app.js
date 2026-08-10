@@ -218,12 +218,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function switchView(viewName) {
-  // SEGURIDAD: SI EL ROL ES ESTUDIANTE, BLOQUEAR ACCESO AL DASHBOARD DEL PROFESOR
-  if (gameState.userRole === 'student' && viewName === 'teacher') {
-    alert("⛔ Acceso restringido: El Dashboard del Profesor solo está disponible para el docente.");
-    return;
-  }
-
   const studentView = document.getElementById("studentView");
   const teacherView = document.getElementById("teacherView");
   const tabStudentBtn = document.getElementById("tabStudentBtn");
@@ -328,7 +322,7 @@ function handleStudentJoinSubmit(e) {
   initNewGame();
 }
 
-// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ Y RESTRICCIONES SEGÚN ROL
+// 🎨 ADAPTACIÓN DINÁMICA DE NOMBRES DE PESTAÑAS Y VISIBILIDAD DE BOTONES
 function applyGameModeUI() {
   const layout = document.getElementById("mainGameLayout");
   const chatSidebar = document.getElementById("teamChatSidebar");
@@ -336,18 +330,24 @@ function applyGameModeUI() {
   const modeLabel = document.getElementById("currentModeLabel");
   const teamsBadge = document.getElementById("activeTeamsBadge");
   const btnChangeMode = document.getElementById("btnChangeModeSetting");
-  const tabTeacherBtn = document.getElementById("tabTeacherBtn");
+  const btnTeacherDashboardCreateMatch = document.getElementById("btnTeacherDashboardCreateMatch");
+  const tabTeacherBtnLabel = document.getElementById("tabTeacherBtnLabel");
+  const dashboardTitleText = document.getElementById("dashboardTitleText");
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
 
-  // CONTROL RESTRINGIDO: DASHBOARD PROFESOR Y BOTÓN REINICIAR SOLO PARA PROFESOR
+  // ADAPTACIÓN POR ROL: PROFESOR VS ESTUDIANTE
   if (gameState.userRole === 'teacher') {
     if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
-    if (tabTeacherBtn) tabTeacherBtn.style.display = "inline-flex";
+    if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "inline-flex";
+    if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Dashboard Profesor";
+    if (dashboardTitleText) dashboardTitleText.textContent = "📺 PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO";
   } else {
+    // ROL ESTUDIANTE: Puede ver el Tablero General pero NO puede crear/cambiar partidas
     if (btnChangeMode) btnChangeMode.style.display = "none";
-    if (tabTeacherBtn) tabTeacherBtn.style.display = "none";
-    switchView('student'); // Si estaba en vista docente, fuerza retorno a estudiante
+    if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "none";
+    if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Tablero General";
+    if (dashboardTitleText) dashboardTitleText.textContent = "📊 TABLERO GENERAL DE CLASE";
   }
 
   if (gameState.gameMode === 'projector') {
