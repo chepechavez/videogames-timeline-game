@@ -322,7 +322,6 @@ function handleStudentJoinSubmit(e) {
   initNewGame();
 }
 
-// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ Y VISIBILIDAD DE BOTONES
 function applyGameModeUI() {
   const layout = document.getElementById("mainGameLayout");
   const chatSidebar = document.getElementById("teamChatSidebar");
@@ -333,7 +332,6 @@ function applyGameModeUI() {
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
 
-  // BOTÓN "🔄 CAMBIAR MODO": SOLO VISIBLE SI EL ROL ES PROFESOR
   if (gameState.userRole === 'teacher') {
     if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
   } else {
@@ -353,7 +351,6 @@ function applyGameModeUI() {
   }
 }
 
-// 👥 PERSISTENT VIEW TEAMS MODAL
 function openViewTeamsModal() {
   const container = document.getElementById("modalTeamsRosterContent");
   container.innerHTML = "";
@@ -443,6 +440,7 @@ function shuffleArray(arr) {
   return arr;
 }
 
+// 🎯 CORRECCIÓN CLAVE DEL MISMATCH DE EQUIPO VS JUGADOR
 function updateHud() {
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
@@ -451,13 +449,16 @@ function updateHud() {
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  const teamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
+  // OBTENER SOLAMENTE MIEMBROS ASIGNADOS AL EQUIPO QUE TIENE EL TURNO ACTIVO
+  const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
   let activePlayerName = "";
-  if (teamMembers.length > 0) {
-    const randomMember = teamMembers[Math.floor(Math.random() * teamMembers.length)];
+  
+  if (activeTeamMembers.length > 0) {
+    const randomMember = activeTeamMembers[Math.floor(Math.random() * activeTeamMembers.length)];
     activePlayerName = randomMember.name;
   } else {
-    activePlayerName = gameState.playerName ? gameState.playerName : `Representante ${currentTeam.name}`;
+    // SI EL EQUIPO EN TURNO NO TIENE INTEGRANTES REGISTRADOS, MOSTRAR NOMBRE DEL EQUIPO Y NO FALLBACK A OTRO ESTUDIANTE
+    activePlayerName = `Representante ${currentTeam.name}`;
   }
 
   const playerValEl = document.getElementById("hudActiveTurnPlayer");
