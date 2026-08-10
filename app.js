@@ -99,7 +99,7 @@ const ALL_TEAMS = [
   { id: 3, name: "Equipo Delta", color: "var(--color-neon-green)", icon: "🟢" }
 ];
 
-// STATE MANAGEMENT
+// STATE MANAGEMENT WITH MONOTONIC VERSIONING (turnSequence)
 let gameState = {
   myClientId: Math.random().toString(36).substring(2, 9),
   userRole: "teacher", // "teacher" or "student"
@@ -127,14 +127,15 @@ let gameState = {
   currentTurnTeamIndex: 0,
   selectedHandCardId: null,
   
-  // UNIFIED TURN TIMER Across All Devices
+  // UNIFIED TURN TIMER & MONOTONIC VERSIONING
+  turnSequence: 0,
   turnTimeLeft: 60,
   turnTimerInterval: null,
   turnStartTimeStamp: 0,
   lastTickedSecond: -1,
   turnTimesList: [],
+  isMoveProcessing: false,
   
-  // REGISTRO SERIALIZABLE DE CARTAS REVELADAS EN LA PARTIDA
   uniqueCardsSeenIds: [],
   
   totalTurnsPlayed: 0,
@@ -151,7 +152,10 @@ let gameState = {
   isGameStarted: false
 };
 
-// HELPER PARA REGISTRAR CARTAS REVELADAS (MESA + MANOS + DECK)
+function incrementTurnSequence() {
+  gameState.turnSequence = (gameState.turnSequence || 0) + 1;
+}
+
 function trackCardSeen(cardId) {
   if (!gameState.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = [];
   if (!gameState.uniqueCardsSeenIds.includes(cardId)) {
@@ -358,6 +362,7 @@ function teacherStartMatchForAllStudents() {
   gameState.winnerTeamIndex = null;
   gameState.isTie = false;
   gameState.turnStartTimeStamp = Date.now();
+  incrementTurnSequence();
   initNewGame();
   closeAllModals();
 
@@ -374,7 +379,8 @@ function teacherStartMatchForAllStudents() {
         numTeams: gameState.numTeams,
         initialCardsPerTeam: gameState.initialCardsPerTeam,
         turnStartTimeStamp: gameState.turnStartTimeStamp,
-        uniqueCardsSeenIds: gameState.uniqueCardsSeenIds
+        uniqueCardsSeenIds: gameState.uniqueCardsSeenIds,
+        turnSequence: gameState.turnSequence
       }
     });
   }
@@ -392,6 +398,7 @@ function handleIncomingStartGame(data) {
   if (data.numTeams) gameState.numTeams = data.numTeams;
   if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
   if (data.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = data.uniqueCardsSeenIds;
+  if (data.turnSequence !== undefined) gameState.turnSequence = data.turnSequence;
 
   closeAllModals();
   updateHud();
@@ -425,7 +432,8 @@ function broadcastGameState() {
         uniqueCardsSeenIds: gameState.uniqueCardsSeenIds,
         isGameOver: gameState.isGameOver,
         winnerTeamIndex: gameState.winnerTeamIndex,
-        isTie: gameState.isTie
+        isTie: gameState.isTie,
+        turnSequence: gameState.turnSequence
       }
     });
   }
@@ -444,6 +452,16 @@ function broadcastChatMessage(sender, text) {
 
 function syncIncomingGameState(data) {
   if (!data) return;
+
+  // FILTRADO ESTRICTO DE SECUENCIA MONOTÓNICA: DESCARTAR PAQUETES DE RED DESACTUALIZADOS
+  if (data.turnSequence !== undefined) {
+    if (data.turnSequence < gameState.turnSequence) {
+      console.log(`⚠️ Ignorando broadcast desactualizado (secuencia ${data.turnSequence} < ${gameState.turnSequence})`);
+      return;
+    }
+    gameState.turnSequence = data.turnSequence;
+  }
+
   if (data.tableCards) gameState.tableCards = data.tableCards;
   if (data.teamHands) gameState.teamHands = data.teamHands;
   if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
@@ -463,6 +481,7 @@ function syncIncomingGameState(data) {
     showGameOverModal(data.winnerTeamIndex, data.isTie);
   }
 
+  gameState.isMoveProcessing = false;
   updateHud();
   renderTimelineTable();
   renderTeamHand();
@@ -740,13 +759,6 @@ function setupTimelineScrollWheel() {
   });
 }
 
-function scrollTimelineTrack(distance) {
-  const track = document.getElementById("timelineTrack");
-  if (track) {
-    track.scrollBy({ left: distance, behavior: 'smooth' });
-  }
-}
-
 /* ==========================================================================
    GAMEPLAY ENGINE & DYNAMIC METRICS TRACKER
    ========================================================================== */
@@ -779,6 +791,8 @@ function initNewGame() {
   gameState.winnerTeamIndex = null;
   gameState.isTie = false;
   gameState.turnStartTimeStamp = Date.now();
+  gameState.isMoveProcessing = false;
+  incrementTurnSequence();
 
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
@@ -897,7 +911,11 @@ function startTurnTimer() {
     if (remaining <= 0) {
       clearInterval(gameState.turnTimerInterval);
       
-      if (gameState.userRole === 'teacher') {
+      const activePlayerName = getActiveRepresentativeName();
+      const isMyActiveTurn = (gameState.playerName && gameState.playerName.toLowerCase() === activePlayerName.toLowerCase());
+
+      // Disparar timeout si somos el profesor O si somos el alumno en turno activo
+      if (gameState.userRole === 'teacher' || isMyActiveTurn) {
         handleTurnTimeout();
       }
     }
@@ -1015,7 +1033,7 @@ function renderTeamHand() {
 }
 
 function handleSlotClick(slotIndex) {
-  if (gameState.isGameOver) return;
+  if (gameState.isGameOver || gameState.isMoveProcessing) return;
 
   if (gameState.gameMode === 'online' && gameState.userRole === 'student') {
     if (gameState.userTeamId !== gameState.currentTurnTeamIndex) {
@@ -1035,13 +1053,17 @@ function handleSlotClick(slotIndex) {
     return;
   }
 
+  gameState.isMoveProcessing = true;
   recordTurnTime();
 
   const activeTeamIndex = gameState.currentTurnTeamIndex;
   const activeHand = gameState.teamHands[activeTeamIndex];
   const cardIndexInHand = activeHand.findIndex(c => c.id === gameState.selectedHandCardId);
 
-  if (cardIndexInHand === -1) return;
+  if (cardIndexInHand === -1) {
+    gameState.isMoveProcessing = false;
+    return;
+  }
 
   const cardToPlace = activeHand[cardIndexInHand];
   gameState.teamStats[activeTeamIndex].attempts++;
@@ -1133,12 +1155,25 @@ function advanceTurnOrEvaluateRound() {
     : Array.from({ length: gameState.numTeams }, (_, i) => i);
 
   gameState.turnStartTimeStamp = Date.now();
+  incrementTurnSequence();
 
   if (gameState.currentRoundTurnCount < activeTeamsList.length) {
     const currentPosInList = activeTeamsList.indexOf(gameState.currentTurnTeamIndex);
-    const nextPosInList = (currentPosInList + 1) % activeTeamsList.length;
-    gameState.currentTurnTeamIndex = activeTeamsList[nextPosInList];
+    
+    // BÚSQUEDA INTELIGENTE DEL SIGUIENTE EQUIPO QUE TENGA CARTAS EN MANO
+    let nextPosInList = (currentPosInList + 1) % activeTeamsList.length;
+    let candidateTeam = activeTeamsList[nextPosInList];
+    let checkedCount = 0;
 
+    while (gameState.teamHands[candidateTeam].length === 0 && checkedCount < activeTeamsList.length) {
+      nextPosInList = (nextPosInList + 1) % activeTeamsList.length;
+      candidateTeam = activeTeamsList[nextPosInList];
+      checkedCount++;
+    }
+
+    gameState.currentTurnTeamIndex = candidateTeam;
+
+    gameState.isMoveProcessing = false;
     updateHud();
     renderTeamHand();
     startTurnTimer();
@@ -1152,6 +1187,7 @@ function advanceTurnOrEvaluateRound() {
   const zeroCardTeams = activeTeamsList.filter(t => gameState.teamHands[t].length === 0);
 
   if (zeroCardTeams.length === 1) {
+    gameState.isMoveProcessing = false;
     declareWinner(zeroCardTeams[0]);
     return;
   }
@@ -1172,11 +1208,13 @@ function advanceTurnOrEvaluateRound() {
     });
 
     if (!availableDeck) {
+      gameState.isMoveProcessing = false;
       declareTie(zeroCardTeams);
       return;
     }
 
     gameState.currentTurnTeamIndex = zeroCardTeams[0];
+    gameState.isMoveProcessing = false;
     updateHud();
     renderTeamHand();
     startTurnTimer();
@@ -1185,11 +1223,13 @@ function advanceTurnOrEvaluateRound() {
   }
 
   if (gameState.isTieBreakMode && gameState.reserveDeck.length === 0) {
+    gameState.isMoveProcessing = false;
     declareTie(gameState.tieBreakTeamIndices);
     return;
   }
 
   gameState.currentTurnTeamIndex = activeTeamsList[0];
+  gameState.isMoveProcessing = false;
   updateHud();
   renderTeamHand();
   startTurnTimer();
@@ -1200,6 +1240,7 @@ function declareWinner(winnerTeamIndex) {
   gameState.isGameOver = true;
   gameState.winnerTeamIndex = winnerTeamIndex;
   gameState.isTie = false;
+  incrementTurnSequence();
 
   clearInterval(gameState.turnTimerInterval);
   showGameOverModal(winnerTeamIndex, false);
@@ -1211,6 +1252,7 @@ function declareTie(tiedTeamIndices) {
   gameState.isGameOver = true;
   gameState.winnerTeamIndex = null;
   gameState.isTie = true;
+  incrementTurnSequence();
 
   clearInterval(gameState.turnTimerInterval);
   showGameOverModal(null, true, tiedTeamIndices);
@@ -1311,7 +1353,6 @@ function renderTeacherDashboard() {
       : `● Máximo 60s por turno`;
   }
 
-  // CÁLCULO 100% PRECISO DE CARTAS ORDENADAS VS TOTAL REVELADAS CON SERIALIZACIÓN ARRAY
   const cardsInTableCount = gameState.tableCards.length;
   const uniqueSeenCount = (gameState.uniqueCardsSeenIds && gameState.uniqueCardsSeenIds.length > 0)
     ? gameState.uniqueCardsSeenIds.length
