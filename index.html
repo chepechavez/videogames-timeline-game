@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=3.0 -->
-  <link rel="stylesheet" href="styles.css?v=3.0">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=4.0 -->
+  <link rel="stylesheet" href="styles.css?v=4.0">
 </head>
 <body>
 
@@ -333,7 +333,7 @@
         <div class="role-card role-card--teacher" onclick="selectInitialRole('teacher')">
           <span class="role-card__icon">👨‍🏫</span>
           <h3 class="role-card__title">SOY PROFESOR</h3>
-          <p class="role-card__desc">Crear o configurar la partida de clase, elegir número de equipos y distribuir estudiantes.</p>
+          <p class="role-card__desc">Crear o configurar la partida de clase, elegir número de equipos y personalizar la sala.</p>
         </div>
 
         <!-- ROLE 2: ESTUDIANTE -->
@@ -379,20 +379,48 @@
           <span style="font-size: 0.75rem; color: var(--color-text-muted);">El sistema los dividirá aleatoria y equitativamente entre los equipos seleccionados.</span>
         </div>
 
-        <!-- 4. CÓDIGO DE SALA (PARA MODO ONLINE) -->
+        <!-- 4. CÓDIGO/NOMBRE DE SALA PERSONALIZABLE (PARA MODO ONLINE) -->
         <div class="form-group" id="teacherRoomCodeGroup" style="display: none;">
-          <label class="form-group__label">Código de Sala Generado:</label>
-          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(157, 0, 255, 0.15); border: 1px solid var(--color-neon-purple); padding: 0.6rem 1rem; border-radius: var(--radius-sm);">
-            <span style="font-family: var(--font-heading); color: var(--color-neon-cyan); font-size: 1.2rem;" id="generatedRoomCode">AULA-101</span>
-            <span style="font-size: 0.8rem; color: var(--color-text-muted);">Escríbelo en el tablero para tus estudiantes</span>
-          </div>
+          <label class="form-group__label" for="inputTeacherRoomCode">Nombre / Código de la Sala Online:</label>
+          <input type="text" id="inputTeacherRoomCode" class="form-group__input" style="font-family: var(--font-heading); color: var(--color-neon-cyan); text-transform: uppercase;" value="AULA-101" placeholder="Ej: HISTORIA-2026" required>
+          <span style="font-size: 0.75rem; color: var(--color-text-muted);">Escribe el código que tus estudiantes ingresarán en sus celulares.</span>
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
           <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
-          <button type="submit" class="btn-primary">🚀 ¡INICIAR PARTIDA DE CLASE!</button>
+          <button type="submit" class="btn-primary" id="btnTeacherConfigSubmit">🚀 ¡ABRIR SALA DE ESPERA!</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2.5: TEACHER ONLINE LOBBY (SALA DE ESPERA Y CONTROL DE INICIO DE PARTIDA) -->
+  <div class="modal-overlay" id="modalOnlineLobby">
+    <div class="modal" style="max-width: 720px; border-color: var(--color-neon-cyan);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="font-size: 0.8rem; color: var(--color-text-muted);">SALA MULTIJUGADOR ONLINE EN VIVO</span>
+          <h2 class="modal__title" style="color: var(--color-neon-cyan); font-size: 1.6rem;" id="lobbyRoomCodeTitle">CÓDIGO: AULA-101</h2>
+        </div>
+        <div class="live-indicator">
+          <span class="live-indicator__dot"></span>
+          <span id="lobbyConnectedStudentsCount" style="font-family: var(--font-heading); font-size: 1.1rem; color: var(--color-neon-green);">👥 0 Conectados</span>
+        </div>
+      </div>
+
+      <p class="modal__subtitle">Escribe este código en el tablero. Los estudiantes aparecerán aquí en tiempo real a medida que se conecten desde sus celulares:</p>
+
+      <!-- LOBBY LIVE TEAMS GRID -->
+      <div class="lobby-teams-grid" id="onlineLobbyLiveTeamsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; max-height: 320px; overflow-y: auto; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm);">
+        <!-- Dynamically updated as students join via Supabase Realtime -->
+      </div>
+
+      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <button class="btn-secondary" onclick="openRoleSelectionModal()">◀ Cambiar Configuración</button>
+        <button class="btn-primary" style="font-size: 1.1rem; padding: 0.9rem;" onclick="teacherStartMatchForAllStudents()">
+          🚀 ¡INICIAR PARTIDA PARA TODOS LOS JUGADORES!
+        </button>
+      </div>
     </div>
   </div>
 
@@ -409,15 +437,38 @@
         </div>
 
         <div class="form-group">
-          <label class="form-group__label" for="inputStudentRoomCode">Código de Sala (Profesor):</label>
-          <input type="text" id="inputStudentRoomCode" class="form-group__input" placeholder="Ej: AULA-101" value="AULA-101" required>
+          <label class="form-group__label" for="inputStudentRoomCode">Código de Sala (Proporcionado por el Profesor):</label>
+          <input type="text" id="inputStudentRoomCode" class="form-group__input" style="font-family: var(--font-heading); color: var(--color-neon-cyan); text-transform: uppercase;" placeholder="Ej: AULA-101" value="AULA-101" required>
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
           <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
-          <button type="submit" class="btn-primary">¡UNIRSE A LA PARTIDA! 🚀</button>
+          <button type="submit" class="btn-primary">¡ENTRAR A LA SALA DE ESPERA! 🚀</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3.5: STUDENT WAITING FOR TEACHER TO START MATCH -->
+  <div class="modal-overlay" id="modalStudentWaiting">
+    <div class="modal" style="max-width: 500px; text-align: center; border-color: var(--color-neon-yellow);">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">⏳</div>
+      <h2 class="modal__title" style="color: var(--color-neon-yellow);" id="waitingStudentHeaderTitle">¡CONECTADO A LA SALA!</h2>
+      
+      <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: var(--radius-sm); margin: 1rem 0; text-align: left;">
+        <p style="font-size: 0.95rem; margin-bottom: 0.4rem;"><strong>Estudiante:</strong> <span id="waitingStudentName" style="color: var(--color-neon-cyan);">Alex Mercer</span></p>
+        <p style="font-size: 0.95rem; margin-bottom: 0.4rem;"><strong>Equipo Asignado:</strong> <span id="waitingStudentTeam" style="color: var(--color-neon-pink);">Equipo Alfa 🔴</span></p>
+        <p style="font-size: 0.95rem;"><strong>Sala:</strong> <span id="waitingStudentRoomCode" style="color: var(--color-neon-yellow);">AULA-101</span></p>
+      </div>
+
+      <div class="live-indicator" style="justify-content: center; margin-bottom: 1rem;">
+        <span class="live-indicator__dot"></span>
+        <span style="font-size: 0.9rem; color: var(--color-neon-green);">Esperando a que el profesor inicie la partida...</span>
+      </div>
+
+      <button class="btn-secondary" style="width: 100%;" onclick="openRoleSelectionModal()">
+        🚪 Salir / Cambiar Datos
+      </button>
     </div>
   </div>
 
@@ -505,7 +556,7 @@
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=3.0 -->
-  <script src="app.js?v=3.0"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=4.0 -->
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>

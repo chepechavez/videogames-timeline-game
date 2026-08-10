@@ -1,5 +1,5 @@
 /* ==========================================================================
-   TIMELINE BOARD GAME - MULTIPLAYER CORE ENGINE WITH SUPABASE REALTIME
+   TIMELINE BOARD GAME - MULTIPLAYER CORE ENGINE WITH SUPABASE REALTIME & LOBBY
    Fiel a las mecánicas del juego de mesa con 74 Eventos e Imágenes Oficiales
    Fuente: The Strong National Museum of Play (museumofplay.org)
    ========================================================================== */
@@ -141,7 +141,8 @@ let gameState = {
   
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
-  isGameOver: false
+  isGameOver: false,
+  isGameStarted: false
 };
 
 // AUDIO SYNTHESIZER
@@ -228,7 +229,7 @@ function launchConfetti() {
 }
 
 /* ==========================================================================
-   SUPABASE REALTIME SYNCHRONIZATION ENGINE
+   SUPABASE REALTIME SYNCHRONIZATION & ONLINE LOBBY ENGINE
    ========================================================================== */
 function initSupabaseRealtime() {
   if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -239,6 +240,16 @@ function initSupabaseRealtime() {
       realtimeChannel = supabaseClient.channel(roomChannelName);
       
       realtimeChannel
+        .on('broadcast', { event: 'student_joined' }, payload => {
+          if (payload.payload) {
+            handleIncomingStudentJoin(payload.payload);
+          }
+        })
+        .on('broadcast', { event: 'start_game' }, payload => {
+          if (payload.payload) {
+            handleIncomingStartGame(payload.payload);
+          }
+        })
         .on('broadcast', { event: 'game_sync' }, payload => {
           if (payload.payload && payload.senderId !== gameState.myClientId) {
             syncIncomingGameState(payload.payload);
@@ -258,8 +269,68 @@ function initSupabaseRealtime() {
   }
 }
 
-function broadcastGameState() {
+function broadcastStudentJoined(studentData) {
   if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'student_joined',
+      senderId: gameState.myClientId,
+      payload: studentData
+    });
+  }
+}
+
+function handleIncomingStudentJoin(studentData) {
+  const exists = gameState.joinedStudents.some(s => s.name === studentData.name && s.teamId === studentData.teamId);
+  if (!exists) {
+    gameState.joinedStudents.push(studentData);
+    renderTeacherOnlineLobbyGrid();
+    renderTeacherDashboard();
+  }
+}
+
+function teacherStartMatchForAllStudents() {
+  gameState.isGameStarted = true;
+  initNewGame();
+  closeAllModals();
+
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'start_game',
+      senderId: gameState.myClientId,
+      payload: {
+        tableCards: gameState.tableCards,
+        teamHands: gameState.teamHands,
+        currentTurnTeamIndex: gameState.currentTurnTeamIndex,
+        joinedStudents: gameState.joinedStudents,
+        numTeams: gameState.numTeams,
+        initialCardsPerTeam: gameState.initialCardsPerTeam
+      }
+    });
+  }
+}
+
+function handleIncomingStartGame(data) {
+  gameState.isGameStarted = true;
+  if (data.tableCards) gameState.tableCards = data.tableCards;
+  if (data.teamHands) gameState.teamHands = data.teamHands;
+  if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
+  if (data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
+  if (data.numTeams) gameState.numTeams = data.numTeams;
+
+  closeAllModals();
+  updateHud();
+  renderTimelineTable();
+  renderTeamHand();
+  renderTeacherDashboard();
+  startTurnTimer();
+  playSynthSound('victory');
+  launchConfetti();
+}
+
+function broadcastGameState() {
+  if (realtimeChannel && gameState.isGameStarted) {
     realtimeChannel.send({
       type: 'broadcast',
       event: 'game_sync',
@@ -359,13 +430,16 @@ function toggleTeacherModeFields() {
   const mode = document.getElementById("selectGameModeSetting").value;
   const studentListGroup = document.getElementById("teacherStudentListGroup");
   const roomCodeGroup = document.getElementById("teacherRoomCodeGroup");
+  const btnSubmit = document.getElementById("btnTeacherConfigSubmit");
 
   if (mode === 'projector') {
     studentListGroup.style.display = "flex";
     roomCodeGroup.style.display = "none";
+    if (btnSubmit) btnSubmit.textContent = "🚀 ¡INICIAR PARTIDA DE CLASE!";
   } else {
     studentListGroup.style.display = "none";
     roomCodeGroup.style.display = "flex";
+    if (btnSubmit) btnSubmit.textContent = "🚀 ¡ABRIR SALA DE ESPERA ONLINE!";
   }
 }
 
@@ -393,20 +467,58 @@ function handleTeacherSubmitConfig(e) {
         gameState.joinedStudents.push({ name, teamId });
       });
     }
-  }
+    closeAllModals();
+    applyGameModeUI();
+    gameState.isGameStarted = true;
+    initNewGame();
+  } else {
+    // MODO ONLINE CON SALA DE ESPERA
+    const customCode = document.getElementById("inputTeacherRoomCode").value.trim().toUpperCase();
+    gameState.roomCode = customCode || "AULA-101";
 
-  closeAllModals();
-  applyGameModeUI();
-  initNewGame();
-  initSupabaseRealtime();
+    closeAllModals();
+    applyGameModeUI();
+
+    document.getElementById("lobbyRoomCodeTitle").textContent = `SALA: ${gameState.roomCode}`;
+    document.getElementById("modalOnlineLobby").classList.add("modal-overlay--active");
+
+    initSupabaseRealtime();
+    renderTeacherOnlineLobbyGrid();
+  }
+}
+
+function renderTeacherOnlineLobbyGrid() {
+  const grid = document.getElementById("onlineLobbyLiveTeamsGrid");
+  const countEl = document.getElementById("lobbyConnectedStudentsCount");
+  if (!grid) return;
+
+  grid.innerHTML = "";
+  countEl.textContent = `👥 ${gameState.joinedStudents.length} Conectados`;
+
+  for (let t = 0; t < gameState.numTeams; t++) {
+    const team = ALL_TEAMS[t];
+    const members = gameState.joinedStudents.filter(s => s.teamId === t);
+
+    const box = document.createElement("div");
+    box.className = "lobby-team-box";
+    box.innerHTML = `
+      <div class="lobby-team-box__title" style="color: ${team.color}; font-weight: bold; font-family: var(--font-heading); margin-bottom: 0.4rem;">
+        ${team.icon} ${team.name} (${members.length} integrantes)
+      </div>
+      <ul class="lobby-team-box__list" style="list-style: none; display: flex; flex-direction: column; gap: 0.3rem;">
+        ${members.length > 0 ? members.map(m => `<li style="font-size: 0.85rem; color: var(--color-neon-cyan);">👤 ${m.name}</li>`).join("") : `<li style="color: var(--color-text-muted); font-size: 0.8rem;">Esperando alumnos...</li>`}
+      </ul>
+    `;
+    grid.appendChild(box);
+  }
 }
 
 function handleStudentJoinSubmit(e) {
   e.preventDefault();
   gameState.userRole = "student";
   const name = document.getElementById("inputStudentNameJoin").value.trim();
-  const code = document.getElementById("inputStudentRoomCode").value.trim();
-  if (!name) return;
+  const code = document.getElementById("inputStudentRoomCode").value.trim().toUpperCase();
+  if (!name || !code) return;
 
   gameState.playerName = name;
   gameState.roomCode = code;
@@ -414,12 +526,24 @@ function handleStudentJoinSubmit(e) {
 
   const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
   gameState.userTeamId = assignedTeamIndex;
-  gameState.joinedStudents.push({ name, teamId: assignedTeamIndex });
+  
+  const studentPayload = { name, teamId: assignedTeamIndex, roomCode: code };
+  gameState.joinedStudents.push(studentPayload);
 
   closeAllModals();
   applyGameModeUI();
-  initNewGame();
+
+  // ABRIR SALA DE ESPERA DEL ESTUDIANTE
+  document.getElementById("waitingStudentName").textContent = name;
+  document.getElementById("waitingStudentTeam").textContent = ALL_TEAMS[assignedTeamIndex].name;
+  document.getElementById("waitingStudentRoomCode").textContent = code;
+  document.getElementById("modalStudentWaiting").classList.add("modal-overlay--active");
+
   initSupabaseRealtime();
+
+  setTimeout(() => {
+    broadcastStudentJoined(studentPayload);
+  }, 1000);
 }
 
 function applyGameModeUI() {
@@ -453,7 +577,7 @@ function applyGameModeUI() {
     if (chatSidebar) chatSidebar.style.display = "none";
     if (playerBox) playerBox.style.display = "none";
   } else {
-    modeLabel.textContent = "📱 Multijugador Online (Celulares)";
+    modeLabel.textContent = `📱 Multijugador Online (Sala: ${gameState.roomCode})`;
     layout.classList.remove("game-layout--no-chat");
     if (chatSidebar) chatSidebar.style.display = "flex";
     if (playerBox) playerBox.style.display = "flex";
