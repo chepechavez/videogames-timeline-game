@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timeline Board Game - Historia de los Videojuegos</title>
+  <title>Videogames Timeline Game - Juego Educativo sobre Historia de los Videojuegos</title>
   
   <!-- Google Fonts: Retro & Cyberpunk Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,8 +29,8 @@
     <div class="app-header__brand">
       <span class="app-header__logo-icon">🕹️</span>
       <div>
-        <h1 class="app-header__title">TIMELINE BOARD GAME</h1>
-        <p class="app-header__subtitle">Ecosistema Educativo de Historia de los Videojuegos</p>
+        <h1 class="app-header__title">Videogames Timeline Game</h1>
+        <p class="app-header__subtitle">Juego Educativo sobre Historia de los Videojuegos</p>
       </div>
     </div>
 
@@ -46,7 +46,7 @@
         <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
           <span>🎮</span> Juego por Equipos
         </button>
-        <!-- PESTAÑA DE DASHBOARD: VISIBLE PARA TODOS (Nombre dinámico: Tablero General para Alumno / Dashboard Profesor para Docente) -->
+        <!-- PESTAÑA DE DASHBOARD: VISIBLE PARA TODOS -->
         <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
           <span id="tabTeacherBtnLabel">📊 Tablero General</span>
         </button>
@@ -67,7 +67,7 @@
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
-        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR -->
         <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
           🔄 Cambiar Modo / Crear Partida
         </button>
@@ -127,7 +127,7 @@
               <div style="display: flex; flex-direction: column; gap: 0.2rem;">
                 <span class="timeline-table__title">📍 LÍNEA DE TIEMPO EN LA MESA</span>
                 <span style="font-size: 0.8rem; color: var(--color-text-muted);">
-                  Selecciona una carta de tu mano y haz clic en un slot <strong style="color: var(--color-neon-cyan);">[ + ]</strong> para ubicarla
+                  Haz clic en <strong style="color: var(--color-neon-cyan);">ℹ️</strong> para ver la historia del evento o en <strong style="color: var(--color-neon-cyan);">[ + ]</strong> para colocar tu carta
                 </span>
               </div>
 
@@ -197,7 +197,7 @@
               <span>EN VIVO - Actualizando...</span>
             </div>
 
-            <!-- BOTÓN DE CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+            <!-- BOTÓN DE CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR -->
             <button class="btn-primary" id="btnTeacherDashboardCreateMatch" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
               ⚙️ Crear Nueva Partida / Cambiar Modo
             </button>
@@ -304,7 +304,7 @@
   <!-- FOOTER WITH ATTRIBUTION LINK -->
   <footer class="app-footer">
     <p>
-      🎮 Timeline Board Game Educational Ecosystem • 
+      🎮 Videogames Timeline Game • Juego Educativo sobre Historia de los Videojuegos • 
       Eventos e imágenes obtenidos de: 
       <a href="https://www.museumofplay.org/video-game-history-timeline/" target="_blank" rel="noopener noreferrer">
         The Strong National Museum of Play (Video Game History Timeline)
@@ -315,8 +315,8 @@
   <!-- MODAL 1: INITIAL WELCOME & ROLE SELECTION -->
   <div class="modal-overlay modal-overlay--active" id="modalRoleSelection">
     <div class="modal" style="max-width: 650px;">
-      <h2 class="modal__title">🕹️ TIMELINE BOARD GAME - BIENVENIDA</h2>
-      <p class="modal__subtitle">Selecciona tu rol para ingresar al ecosistema educativo:</p>
+      <h2 class="modal__title">🕹️ Videogames Timeline Game</h2>
+      <p class="modal__subtitle">Selecciona tu rol para ingresar al juego educativo:</p>
 
       <div class="role-grid">
         <!-- ROLE 1: PROFESOR -->
@@ -427,11 +427,38 @@
     </div>
   </div>
 
-  <!-- MODAL 5: DIAGNOSTIC & GAME OVER SUMMARY -->
+  <!-- MODAL 5: EXTENDED CARD HISTORICAL DETAIL -->
+  <div class="modal-overlay" id="modalCardDetail">
+    <div class="modal" style="max-width: 580px; border-color: var(--color-neon-cyan);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <span style="font-family: var(--font-heading); color: var(--color-neon-cyan); font-size: 0.9rem;" id="cardDetailYear">AÑO: 1972</span>
+          <h2 class="modal__title" id="cardDetailTitle" style="font-size: 1.3rem; margin-top: 0.2rem;">Nacimiento de Pong (Atari)</h2>
+        </div>
+        <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.9rem;" onclick="closeCardDetailModal()">✕</button>
+      </div>
+
+      <div style="margin: 1rem 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid rgba(0,243,255,0.3); text-align: center; max-height: 250px;">
+        <img id="cardDetailImage" src="" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+      </div>
+
+      <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius-sm); border-left: 3px solid var(--color-neon-cyan);">
+        <p style="font-size: 0.95rem; line-height: 1.5; color: var(--color-text-main);" id="cardDetailDesc">
+          Descripción detallada del evento histórico...
+        </p>
+      </div>
+
+      <div style="margin-top: 1rem; text-align: right;">
+        <button class="btn-primary" style="width: auto; padding: 0.5rem 1.5rem;" onclick="closeCardDetailModal()">ENTENDIDO 👍</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: DIAGNOSTIC & GAME OVER SUMMARY -->
   <div class="modal-overlay" id="modalDiagnostic">
-    <div class="modal" style="max-width: 600px;">
+    <div class="modal" style="max-width: 620px;">
       <h2 class="modal__title" id="diagTitle">🏆 ¡PARTIDA FINALIZADA!</h2>
-      <p class="modal__subtitle" id="diagWinnerSubtitle">Un equipo ha logrado colocar su última carta correctamente.</p>
+      <p class="modal__subtitle" id="diagWinnerSubtitle">Resumen de desempeño y efectividad de la sesión:</p>
 
       <div class="diagnostic-grid">
         <div class="diagnostic-box">
@@ -447,13 +474,20 @@
 
       <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; text-align: center;">
         <p style="font-size: 0.9rem; color: var(--color-text-main);" id="diagFeedbackMessage">
-          ¡Extraordinario trabajo en equipo y estrategia cronológica!
+          ¡Extraordinario trabajo en equipo y estrategia cronológica! Ahora pueden explorar la línea de tiempo armada.
         </p>
       </div>
 
-      <div style="display: flex; gap: 1rem;">
-        <button class="btn-primary" onclick="restartGame()">🔄 Nueva Partida</button>
-        <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Dashboard Docente</button>
+      <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
+        <!-- BOTÓN DE EXPLORACIÓN DE LA LÍNEA DE TIEMPO FINAL -->
+        <button class="btn-secondary" style="border-color: var(--color-neon-cyan); color: var(--color-neon-cyan); font-size: 1rem; padding: 0.7rem;" onclick="closeDiagnosticAndExploreTimeline()">
+          📜 EXPLORAR LÍNEA DE TIEMPO ARMADA Y SUS HISTORIAS
+        </button>
+
+        <div style="display: flex; gap: 1rem;">
+          <button class="btn-primary" onclick="restartGame()">🔄 Nueva Partida</button>
+          <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Tablero General</button>
+        </div>
       </div>
     </div>
   </div>

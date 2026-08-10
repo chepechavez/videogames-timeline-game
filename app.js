@@ -120,11 +120,10 @@ let gameState = {
   turnTimeLeft: 60,
   turnTimerInterval: null,
   
-  // ESTRUCTURA DE RONDAS Y DESEMPATE (MECÁNICA OFICIAL TIMELINE)
   totalTurnsPlayed: 0,
   currentRoundTurnCount: 0,
   isTieBreakMode: false,
-  tieBreakTeamIndices: [], // Equipos que participan en la ronda de desempate
+  tieBreakTeamIndices: [],
   
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
@@ -392,6 +391,39 @@ function closeViewTeamsModal() {
   document.getElementById("modalViewTeams").classList.remove("modal-overlay--active");
 }
 
+/* ==========================================================================
+   🔍 MODAL DE DETALLE HISTÓRICO DE CARTA (EVENTO EXTENDIDO)
+   ========================================================================== */
+function openCardDetailModal(cardId) {
+  const eventObj = HISTORICAL_EVENTS.find(c => c.id === cardId);
+  if (!eventObj) return;
+
+  document.getElementById("cardDetailYear").textContent = `AÑO: ${eventObj.year}`;
+  document.getElementById("cardDetailTitle").textContent = eventObj.title;
+  document.getElementById("cardDetailDesc").textContent = eventObj.desc;
+  
+  const imgEl = document.getElementById("cardDetailImage");
+  imgEl.src = eventObj.image;
+  imgEl.onerror = () => { imgEl.src = 'https://via.placeholder.com/350x200?text=MuseumOfPlay'; };
+
+  document.getElementById("modalCardDetail").classList.add("modal-overlay--active");
+}
+
+function closeCardDetailModal() {
+  document.getElementById("modalCardDetail").classList.remove("modal-overlay--active");
+}
+
+function closeDiagnosticAndExploreTimeline() {
+  document.getElementById("modalDiagnostic").classList.remove("modal-overlay--active");
+  switchView('student');
+  setTimeout(() => {
+    const track = document.getElementById("timelineTrack");
+    if (track) {
+      track.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, 150);
+}
+
 function setupTimelineScrollWheel() {
   const track = document.getElementById("timelineTrack");
   if (!track) return;
@@ -411,7 +443,7 @@ function scrollTimelineTrack(distance) {
 }
 
 /* ==========================================================================
-   GAMEPLAY ENGINE - MECÁNICA OFICIAL DE RONDAS DE TIMELINE
+   GAMEPLAY ENGINE
    ========================================================================== */
 
 function initNewGame() {
@@ -554,6 +586,7 @@ function renderTimelineTable() {
       cardEl.className = "timeline-card";
 
       cardEl.innerHTML = `
+        <button class="timeline-card__info-btn" title="Ver historia del evento" onclick="event.stopPropagation(); openCardDetailModal(${card.id})">ℹ️</button>
         <div class="timeline-card__year-badge">${card.year}</div>
         <div class="timeline-card__image-container">
           <img src="${card.image}" alt="${card.title}" class="timeline-card__image" onerror="this.src='https://via.placeholder.com/150x100?text=MuseumOfPlay'">
@@ -644,7 +677,7 @@ function handleSlotClick(slotIndex) {
     gameState.tableCards.splice(slotIndex, 0, cardToPlace);
     triggerStreakOverlay(gameState.teamStreaks[activeTeamIndex]);
 
-    addChatMessage("🤖 Sistema", `¡ACIERTO! ${ALL_TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente.`);
+    addChatMessage("🤖 Sistema", `¡ACIERTO! ${ALL_TEAMS[activeTeamIndex].name} colocó '${cardToPlace.title}' (${cardToPlace.year}) correctamente. (Haz clic en ℹ️ para leer su historia).`);
 
   } else {
     playSynthSound('error');
@@ -698,17 +731,12 @@ function triggerStreakOverlay(streakCount) {
   }, 1800);
 }
 
-/* ==========================================================================
-   🎯 MECÁNICA OFICIAL DE EVALUACIÓN DE RONDA COMPLETA Y DESEMPATE DE TIMELINE
-   ========================================================================== */
 function advanceTurnOrEvaluateRound() {
   const activeTeamsList = gameState.isTieBreakMode 
     ? gameState.tieBreakTeamIndices 
     : Array.from({ length: gameState.numTeams }, (_, i) => i);
 
-  // SI AÚN NO HA TERMINADO EL CICLO DE TODOS LOS EQUIPOS DE ESTA RONDA COMPLETA:
   if (gameState.currentRoundTurnCount < activeTeamsList.length) {
-    // Pasar al siguiente equipo de la lista activa
     const currentPosInList = activeTeamsList.indexOf(gameState.currentTurnTeamIndex);
     const nextPosInList = (currentPosInList + 1) % activeTeamsList.length;
     gameState.currentTurnTeamIndex = activeTeamsList[nextPosInList];
@@ -719,26 +747,20 @@ function advanceTurnOrEvaluateRound() {
     return;
   }
 
-  // 🏁 ¡SE HA COMPLETADO UNA RONDA COMPLETA! EVALUAR ESTADO DE VICTORIA O DESEMPATE
   gameState.currentRoundTurnCount = 0;
-
-  // Filtrar cuáles equipos de la lista activa terminaron la ronda con 0 cartas
   const zeroCardTeams = activeTeamsList.filter(t => gameState.teamHands[t].length === 0);
 
-  // CASO A: EXACTAMENTE 1 EQUIPO QUEDÓ EN 0 CARTAS -> ¡GANADOR ÚNICO!
   if (zeroCardTeams.length === 1) {
     declareWinner(zeroCardTeams[0]);
     return;
   }
 
-  // CASO B: VARIOS EQUIPOS QUEDARON EN 0 CARTAS AL MISMO TIEMPO -> ¡RONDA DE DESEMPATE!
   if (zeroCardTeams.length > 1) {
     gameState.isTieBreakMode = true;
     gameState.tieBreakTeamIndices = zeroCardTeams;
 
     addChatMessage("🤖 Sistema", `⚡ ¡¡DESEMPATE DE INFARTO!! Los equipos ${zeroCardTeams.map(t => ALL_TEAMS[t].name).join(" y ")} terminaron la ronda sin cartas. ¡Cada uno roba 1 carta para la ronda de desempate!`);
 
-    // Cada equipo empatado roba exactamente 1 carta de la reserva
     let availableDeck = gameState.reserveDeck.length > 0;
     zeroCardTeams.forEach(t => {
       if (gameState.reserveDeck.length > 0) {
@@ -758,13 +780,11 @@ function advanceTurnOrEvaluateRound() {
     return;
   }
 
-  // CASO C: SI ESTÁBAMOS EN MODO DESEMPATE Y AMBOS FALLARON O SE ACABÓ EL MAZO -> EMPATE
   if (gameState.isTieBreakMode && gameState.reserveDeck.length === 0) {
     declareTie(gameState.tieBreakTeamIndices);
     return;
   }
 
-  // CASO D: NADIE TIENE 0 CARTAS AÚN -> CONTINUAR A LA SIGUIENTE RONDA NORMAL
   gameState.currentTurnTeamIndex = activeTeamsList[0];
   updateHud();
   renderTeamHand();
