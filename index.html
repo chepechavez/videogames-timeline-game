@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=2.0 -->
-  <link rel="stylesheet" href="styles.css?v=2.0">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=2.1 -->
+  <link rel="stylesheet" href="styles.css?v=2.1">
 </head>
 <body>
 
@@ -35,10 +35,15 @@
     </div>
 
     <!-- Interface Switcher Tabs & Team Roster Button -->
-    <div style="display: flex; align-items: center; gap: 0.8rem;">
+    <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
       
-      <!-- BOTÓN SIEMPRE ACCESIBLE PARA VER LA LISTA DE INTEGRANTES DE LOS EQUIPOS -->
-      <button class="btn-secondary" style="padding: 0.5rem 1rem; border-color: var(--color-neon-cyan); color: var(--color-neon-cyan);" onclick="openViewTeamsModal()">
+      <!-- BOTÓN PARA SALIR A LA PORTADA / ELEGIR ROL -->
+      <button class="btn-secondary" id="btnExitToCover" style="padding: 0.5rem 0.9rem; border-color: rgba(255,255,255,0.25); color: var(--color-text-main);" onclick="openRoleSelectionModal()" title="Salir a la portada inicial para cambiar de rol">
+        🏠 Salir a Portada
+      </button>
+
+      <!-- BOTÓN ACCESIBLE PARA VER LA LISTA DE INTEGRANTES DE LOS EQUIPOS -->
+      <button class="btn-secondary" style="padding: 0.5rem 0.9rem; border-color: var(--color-neon-cyan); color: var(--color-neon-cyan);" onclick="openViewTeamsModal()">
         👥 Ver Equipos
       </button>
 
@@ -497,7 +502,7 @@
     </div>
   </div>
 
-  <!-- JavaScript Core Engine - Cache Buster v=2.0 -->
-  <script src="app.js?v=2.0"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=2.1 -->
+  <script src="app.js?v=2.1"></script>
 </body>
 </html>
