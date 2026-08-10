@@ -324,20 +324,20 @@ body {
   100% { background: #ff7700; }
 }
 
-/* MAIN GAME LAYOUT (FIXED GRID OVERFLOW BUG WITH MIN-WIDTH: 0) */
+/* MAIN GAME LAYOUT */
 .game-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 1.5rem;
   width: 100%;
-  min-width: 0; /* CRITICAL FIX: Stops grid column from expanding beyond screen */
+  min-width: 0;
 }
 
 .game-layout__main-col {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  min-width: 0; /* CRITICAL FIX: Constrains children to grid width */
+  min-width: 0;
   width: 100%;
 }
 
@@ -347,7 +347,7 @@ body {
   }
 }
 
-/* TIMELINE CENTRAL TABLE (STRICTLY CONSTRAINED TO SCREEN WIDTH) */
+/* TIMELINE CENTRAL TABLE */
 .timeline-table {
   background: rgba(18, 20, 32, 0.9);
   border: 2px solid rgba(0, 243, 255, 0.4);
@@ -360,7 +360,7 @@ body {
   position: relative;
   width: 100%;
   max-width: 100%;
-  min-width: 0; /* CRITICAL FIX: Ensures container never exceeds parent */
+  min-width: 0;
 }
 
 .timeline-table__header {
@@ -410,7 +410,6 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* SCROLL TRACK CONSTRAINED WITH NO OVERFLOW */
 .timeline-table__scroll-area {
   display: flex;
   align-items: center;
@@ -443,7 +442,7 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* COMPACT MODE STYLES WHEN TIMELINE HAS MANY CARDS */
+/* COMPACT MODE STYLES */
 .timeline-table__scroll-area--compact .timeline-card {
   width: 115px;
   min-width: 115px;
@@ -466,7 +465,7 @@ body {
   font-size: 1.1rem;
 }
 
-/* INSERTION SLOT ([ + ] BUTTONS BETWEEN CARDS) */
+/* INSERTION SLOT */
 .insertion-slot {
   min-width: 60px;
   height: 220px;
@@ -502,7 +501,7 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* TIMELINE CARD (BEM: .timeline-card) */
+/* TIMELINE CARD */
 .timeline-card {
   width: 170px;
   min-width: 170px;
@@ -568,7 +567,7 @@ body {
   overflow: hidden;
 }
 
-/* TEAM HAND CARDS */
+/* TEAM HAND CARDS (GENEROUS PADDING SO SELECTED CARDS ARE NEVER CLIPPED AT TOP) */
 .team-hand {
   background: var(--color-bg-card);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -592,17 +591,18 @@ body {
 
 .team-hand__cards-grid {
   display: flex;
-  gap: 1rem;
+  gap: 1.2rem;
   overflow-x: auto;
-  padding-bottom: 0.5rem;
+  overflow-y: visible; /* Allows glowing selected cards to render cleanly */
+  padding: 1rem 0.6rem 0.8rem 0.6rem; /* CRITICAL FIX: Generous top padding prevents clipping! */
   width: 100%;
   min-width: 0;
 }
 
 .hand-card {
-  width: 150px;
-  min-width: 150px;
-  height: 210px;
+  width: 155px;
+  min-width: 155px;
+  height: 215px;
   background: var(--color-bg-surface);
   border: 2px solid var(--color-neon-purple);
   border-radius: var(--radius-md);
@@ -611,20 +611,21 @@ body {
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   user-select: none;
 }
 
 .hand-card:hover {
-  transform: translateY(-6px) scale(1.03);
+  transform: translateY(-4px);
   border-color: var(--color-neon-cyan);
   box-shadow: var(--shadow-cyan-glow);
 }
 
+/* SELECTED HAND CARD FIX: GLOWING BORDER & NEON GLOW WITHOUT TOP CLIPPING */
 .hand-card--selected {
-  border-color: var(--color-neon-green) !important;
-  box-shadow: var(--shadow-green-glow) !important;
-  transform: translateY(-8px) scale(1.05);
+  border: 3px solid var(--color-neon-green) !important;
+  box-shadow: 0 0 20px var(--color-neon-green), 0 0 35px rgba(0, 255, 102, 0.4) !important;
+  transform: translateY(-3px) scale(1.03) !important;
 }
 
 .hand-card__image-box {
@@ -773,7 +774,7 @@ body {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
 }
 
-/* LOBBY / WAITING ROOM STYLES */
+/* LOBBY STYLES */
 .lobby-card {
   background: var(--color-bg-surface);
   border: 2px solid var(--color-neon-purple);
