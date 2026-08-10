@@ -71,7 +71,7 @@ body {
   opacity: 0.4;
 }
 
-/* HEADER & MAIN NAVIGATION (BEM: .app-header) */
+/* HEADER & MAIN NAVIGATION */
 .app-header {
   background: var(--color-bg-surface-glass);
   backdrop-filter: blur(10px);
@@ -184,56 +184,58 @@ body {
   display: flex;
 }
 
-/* GAME MODE SELECTOR BAR */
-.mode-selector-bar {
-  background: var(--color-bg-card);
-  border: 1px solid rgba(0, 243, 255, 0.3);
-  border-radius: var(--radius-md);
-  padding: 0.8rem 1.2rem;
+/* ROLE SELECTION WELCOME CARDS */
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.role-card {
+  background: rgba(18, 20, 32, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  text-align: center;
   gap: 1rem;
-}
-
-.mode-selector-bar__title {
-  font-family: var(--font-heading);
-  font-size: 0.85rem;
-  color: var(--color-neon-yellow);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.mode-btn-group {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.mode-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--color-text-muted);
-  padding: 0.4rem 0.8rem;
-  border-radius: 15px;
-  font-family: var(--font-heading);
-  font-size: 0.75rem;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.3s ease;
 }
 
-.mode-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+.role-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--color-neon-cyan);
+  box-shadow: var(--shadow-cyan-glow);
+}
+
+.role-card--teacher:hover {
+  border-color: var(--color-neon-purple);
+  box-shadow: 0 0 20px rgba(157, 0, 255, 0.5);
+}
+
+.role-card__icon {
+  font-size: 3.5rem;
+}
+
+.role-card__title {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
   color: #fff;
 }
 
-.mode-btn--active {
-  background: var(--color-neon-cyan);
-  color: #000;
-  border-color: var(--color-neon-cyan);
-  font-weight: bold;
-  box-shadow: var(--shadow-cyan-glow);
+.role-card__desc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 /* GAME ARENA & TEAM HUD */
@@ -324,13 +326,22 @@ body {
   100% { background: #ff7700; }
 }
 
-/* MAIN GAME LAYOUT */
+/* MAIN GAME LAYOUT (SUPPORT FOR FULL-WIDTH WHEN CHAT IS HIDDEN) */
 .game-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 1.5rem;
   width: 100%;
   min-width: 0;
+}
+
+/* FULL WIDTH LAYOUT IN PROJECTOR MODE (NO CHAT SIDEBAR) */
+.game-layout--no-chat {
+  grid-template-columns: 1fr !important;
+}
+
+.game-layout--no-chat .chat-box {
+  display: none !important;
 }
 
 .game-layout__main-col {
@@ -442,29 +453,6 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* COMPACT MODE STYLES */
-.timeline-table__scroll-area--compact .timeline-card {
-  width: 115px;
-  min-width: 115px;
-  height: 185px;
-  padding: 0.5rem;
-}
-
-.timeline-table__scroll-area--compact .timeline-card__image-container {
-  height: 65px;
-}
-
-.timeline-table__scroll-area--compact .timeline-card__title {
-  font-size: 0.65rem;
-  -webkit-line-clamp: 2;
-}
-
-.timeline-table__scroll-area--compact .insertion-slot {
-  min-width: 45px;
-  height: 165px;
-  font-size: 1.1rem;
-}
-
 /* INSERTION SLOT */
 .insertion-slot {
   min-width: 60px;
@@ -567,7 +555,7 @@ body {
   overflow: hidden;
 }
 
-/* TEAM HAND CARDS (GENEROUS PADDING SO SELECTED CARDS ARE NEVER CLIPPED AT TOP) */
+/* TEAM HAND CARDS */
 .team-hand {
   background: var(--color-bg-card);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -593,8 +581,8 @@ body {
   display: flex;
   gap: 1.2rem;
   overflow-x: auto;
-  overflow-y: visible; /* Allows glowing selected cards to render cleanly */
-  padding: 1rem 0.6rem 0.8rem 0.6rem; /* CRITICAL FIX: Generous top padding prevents clipping! */
+  overflow-y: visible;
+  padding: 1rem 0.6rem 0.8rem 0.6rem;
   width: 100%;
   min-width: 0;
 }
@@ -621,7 +609,6 @@ body {
   box-shadow: var(--shadow-cyan-glow);
 }
 
-/* SELECTED HAND CARD FIX: GLOWING BORDER & NEON GLOW WITHOUT TOP CLIPPING */
 .hand-card--selected {
   border: 3px solid var(--color-neon-green) !important;
   box-shadow: 0 0 20px var(--color-neon-green), 0 0 35px rgba(0, 255, 102, 0.4) !important;
@@ -1046,7 +1033,7 @@ body {
   background: var(--color-bg-surface);
   border: 2px solid var(--color-neon-cyan);
   border-radius: var(--radius-lg);
-  max-width: 540px;
+  max-width: 580px;
   width: 100%;
   padding: 2rem;
   box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);

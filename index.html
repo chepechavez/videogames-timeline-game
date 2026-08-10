@@ -24,7 +24,7 @@
   <!-- STREAK OVERLAY POPUP -->
   <div class="streak-overlay" id="streakOverlay"></div>
 
-  <!-- APPLICATION HEADER & NAVIGATION (BEM: .app-header) -->
+  <!-- APPLICATION HEADER & NAVIGATION -->
   <header class="app-header">
     <div class="app-header__brand">
       <span class="app-header__logo-icon">🕹️</span>
@@ -34,44 +34,48 @@
       </div>
     </div>
 
-    <!-- Interface Switcher Tabs -->
-    <nav class="app-header__nav" aria-label="Navegación principal">
-      <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
-        <span>🎮</span> Juego por Equipos
+    <!-- Interface Switcher Tabs & Team Roster Button -->
+    <div style="display: flex; align-items: center; gap: 0.8rem;">
+      
+      <!-- BOTÓN SIEMPRE ACCESIBLE PARA VER LA LISTA DE INTEGRANTES DE LOS EQUIPOS -->
+      <button class="btn-secondary" style="padding: 0.5rem 1rem; border-color: var(--color-neon-cyan); color: var(--color-neon-cyan);" onclick="openViewTeamsModal()">
+        👥 Ver Equipos
       </button>
-      <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
-        <span>📊</span> Dashboard Profesor
-      </button>
-    </nav>
+
+      <nav class="app-header__nav" aria-label="Navegación principal">
+        <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
+          <span>🎮</span> Juego por Equipos
+        </button>
+        <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
+          <span>📊</span> Dashboard Profesor
+        </button>
+      </nav>
+
+    </div>
   </header>
 
   <!-- MAIN APPLICATION CONTAINER -->
   <main class="app-body">
 
-    <!-- GAME MODE SELECTOR BAR -->
-    <div class="mode-selector-bar">
+    <!-- GAME MODE DISPLAY BAR -->
+    <div class="mode-selector-bar" id="gameModeBar">
       <div class="mode-selector-bar__title">
-        <span>⚙️ MODO DE JUEGO:</span>
+        <span>⚙️ MODO DE JUEGO ACTIVO:</span>
         <span id="currentModeLabel" style="color: #fff; font-weight: bold;">📺 Proyector de Aula (1 Pantalla)</span>
       </div>
 
-      <div class="mode-btn-group">
-        <button class="mode-btn mode-btn--active" id="btnModeProjector" onclick="selectGameMode('projector')">
-          📺 Proyector (1 Pantalla)
-        </button>
-        <button class="mode-btn" id="btnModeMultiTab" onclick="selectGameMode('multitab')">
-          💻 Local (Multi-pestaña)
-        </button>
-        <button class="mode-btn" id="btnModeOnline" onclick="selectGameMode('online')">
-          📱 Multijugador Online (Celulares)
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
+        <button class="btn-secondary" style="font-size: 0.75rem; padding: 0.3rem 0.7rem;" onclick="openRoleSelectionModal()">
+          🔄 Cambiar Modo / Crear Partida
         </button>
       </div>
     </div>
 
-    <!-- VIEW 1: STUDENT TIMELINE GAME (BEM: .game-view) -->
+    <!-- VIEW 1: STUDENT TIMELINE GAME -->
     <section class="view-section view-section--active" id="studentView">
       
-      <!-- TEAM HUD & TURN TIMER BAR (CLEARLY DIFFERENTIATED BOXES) -->
+      <!-- TEAM HUD & TURN TIMER BAR -->
       <div class="game-hud">
         
         <!-- BOX 1: EQUIPO EN TURNO -->
@@ -84,8 +88,8 @@
           </div>
         </div>
 
-        <!-- BOX 2: JUGADOR DE TURNO -->
-        <div class="hud-card hud-card--player">
+        <!-- BOX 2: JUGADOR DE TURNO (Solo visible si hay nombres o modo online) -->
+        <div class="hud-card hud-card--player" id="hudCardPlayerBox">
           <span class="hud-card__icon">👤</span>
           <div class="hud-card__content">
             <span class="hud-card__label">JUGADOR DE TURNO</span>
@@ -110,10 +114,9 @@
 
       </div>
 
-      <!-- MAIN GAME LAYOUT: CENTRAL TABLE + CHAT -->
-      <div class="game-layout">
+      <!-- MAIN GAME LAYOUT (Dynamic grid class: game-layout--no-chat in projector mode) -->
+      <div class="game-layout" id="mainGameLayout">
         
-        <!-- MAIN COLUMN CONSTRAINED WITH MIN-WIDTH: 0 -->
         <div class="game-layout__main-col">
           
           <!-- TIMELINE CENTRAL TABLE -->
@@ -126,11 +129,8 @@
                 </span>
               </div>
 
-              <!-- CONTROLES DE NAVEGACIÓN VISIBLES -->
+              <!-- CONTROLES DE NAVEGACIÓN DE PANTALLA COMPLETA -->
               <div class="timeline-table__controls">
-                <button class="btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="toggleCompactTimelineView()" title="Alternar tamaño de cartas">
-                  🔍 Vista Compacta
-                </button>
                 <button class="nav-arrow-btn" onclick="scrollTimelineTrack(-380)" title="Deslizar a la izquierda">◀ IZQUIERDA</button>
                 <button class="nav-arrow-btn" onclick="scrollTimelineTrack(380)" title="Deslizar a la derecha">DERECHA ▶</button>
               </div>
@@ -156,8 +156,8 @@
 
         </div>
 
-        <!-- RIGHT SIDEBAR: TEAM CHAT BOX -->
-        <div class="chat-box">
+        <!-- RIGHT SIDEBAR: TEAM CHAT BOX (Hidden automatically in Projector Mode) -->
+        <div class="chat-box" id="teamChatSidebar">
           <div class="chat-box__header">
             <span>💬 CHAT EN VIVO DEL EQUIPO</span>
           </div>
@@ -179,7 +179,7 @@
 
     </section>
 
-    <!-- VIEW 2: TEACHER LIVE DASHBOARD (BEM: .dashboard) -->
+    <!-- VIEW 2: TEACHER LIVE DASHBOARD -->
     <section class="view-section" id="teacherView">
       
       <div class="dashboard">
@@ -195,8 +195,8 @@
               <span>EN VIVO - Actualizando...</span>
             </div>
 
-            <button class="btn-primary" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openTeacherRoomModal()">
-              ⚙️ Configurar Sala de Clase
+            <button class="btn-primary" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
+              ⚙️ Crear Nueva Partida / Cambiar Modo
             </button>
           </div>
         </div>
@@ -309,66 +309,122 @@
     </p>
   </footer>
 
-  <!-- MODAL 1: STUDENT REGISTRATION -->
-  <div class="modal-overlay modal-overlay--active" id="modalStudentRegister">
-    <div class="modal">
-      <h2 class="modal__title">🕹️ UNIRSE A LA PARTIDA DE TIMELINE</h2>
-      <p class="modal__subtitle">Ingresa tu nombre para ser asignado equitativamente a un equipo:</p>
+  <!-- MODAL 1: INITIAL WELCOME & ROLE SELECTION -->
+  <div class="modal-overlay modal-overlay--active" id="modalRoleSelection">
+    <div class="modal" style="max-width: 650px;">
+      <h2 class="modal__title">🕹️ TIMELINE BOARD GAME - BIENVENIDA</h2>
+      <p class="modal__subtitle">Selecciona tu rol para ingresar al ecosistema educativo:</p>
 
-      <form id="studentRegisterForm" onsubmit="handleStartGame(event)">
+      <div class="role-grid">
+        <!-- ROLE 1: PROFESOR -->
+        <div class="role-card role-card--teacher" onclick="selectInitialRole('teacher')">
+          <span class="role-card__icon">👨‍🏫</span>
+          <h3 class="role-card__title">SOY PROFESOR</h3>
+          <p class="role-card__desc">Crear o configurar la partida de clase, elegir número de equipos y distribuir estudiantes.</p>
+        </div>
+
+        <!-- ROLE 2: ESTUDIANTE -->
+        <div class="role-card" onclick="selectInitialRole('student')">
+          <span class="role-card__icon">🎓</span>
+          <h3 class="role-card__title">SOY ESTUDIANTE</h3>
+          <p class="role-card__desc">Unirse a una partida en línea desde celular/laptop con el código de sala proporcionado.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: TEACHER SETUP FLOW -->
+  <div class="modal-overlay" id="modalTeacherConfig">
+    <div class="modal" style="max-width: 620px;">
+      <h2 class="modal__title">⚙️ CONFIGURACIÓN DE PARTIDA - DOCENTE</h2>
+      <p class="modal__subtitle">Personaliza los parámetros de la sesión de juego:</p>
+
+      <form onsubmit="handleTeacherSubmitConfig(event)">
+        <!-- 1. MODO DE JUEGO -->
         <div class="form-group">
-          <label class="form-group__label" for="inputStudentName">Nombre / Alias del Jugador:</label>
-          <input type="text" id="inputStudentName" class="form-group__input" placeholder="Ej: Alex Mercer" required>
+          <label class="form-group__label" for="selectGameModeSetting">Modo de Juego:</label>
+          <select id="selectGameModeSetting" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;" onchange="toggleTeacherModeFields()">
+            <option value="projector">📺 Proyector de Aula (1 Sola Pantalla en el Salón)</option>
+            <option value="online">📱 Multijugador Online (Cada alumno con su celular)</option>
+          </select>
         </div>
 
-        <div class="form-group" id="roomCodeGroup" style="display: none;">
-          <label class="form-group__label" for="inputRoomCode">Código de Sala (Profesor):</label>
-          <input type="text" id="inputRoomCode" class="form-group__input" placeholder="Ej: AULA-101" value="AULA-101">
+        <!-- 2. NÚMERO DE EQUIPOS -->
+        <div class="form-group">
+          <label class="form-group__label" for="selectNumTeamsSetting">Número de Equipos a Formar:</label>
+          <select id="selectNumTeamsSetting" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;">
+            <option value="4">4 Equipos (4 cartas por mano)</option>
+            <option value="3">3 Equipos (5 cartas por mano)</option>
+            <option value="2">2 Equipos (6 cartas por mano)</option>
+          </select>
         </div>
 
-        <button type="submit" class="btn-primary" style="margin-top: 1rem;">
-          ¡COMENZAR A JUGAR! 🚀
-        </button>
+        <!-- 3. LISTA DE ESTUDIANTES (PARA MODO PROYECTOR) -->
+        <div class="form-group" id="teacherStudentListGroup">
+          <label class="form-group__label" for="textareaStudentList">Lista de Estudiantes (Separados por coma o salto de línea):</label>
+          <textarea id="textareaStudentList" class="form-group__input" style="height: 100px; resize: vertical;" placeholder="Ej: Carlos, María, Juan, Pedro, Ana, Luis..."></textarea>
+          <span style="font-size: 0.75rem; color: var(--color-text-muted);">El sistema los dividirá aleatoria y equitativamente entre los equipos seleccionados.</span>
+        </div>
+
+        <!-- 4. CÓDIGO DE SALA (PARA MODO ONLINE) -->
+        <div class="form-group" id="teacherRoomCodeGroup" style="display: none;">
+          <label class="form-group__label">Código de Sala Generado:</label>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(157, 0, 255, 0.15); border: 1px solid var(--color-neon-purple); padding: 0.6rem 1rem; border-radius: var(--radius-sm);">
+            <span style="font-family: var(--font-heading); color: var(--color-neon-cyan); font-size: 1.2rem;" id="generatedRoomCode">AULA-101</span>
+            <span style="font-size: 0.8rem; color: var(--color-text-muted);">Escríbelo en el tablero para tus estudiantes</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
+          <button type="submit" class="btn-primary">🚀 ¡INICIAR PARTIDA DE CLASE!</button>
+        </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL 2: TEACHER ROOM SETUP & LOBBY MODAL -->
-  <div class="modal-overlay" id="modalTeacherRoom">
-    <div class="modal" style="max-width: 600px;">
-      <h2 class="modal__title">⚙️ CONFIGURACIÓN DE SALA DOCENTE</h2>
-      <p class="modal__subtitle">Elige el número de equipos y genera el código para tus estudiantes:</p>
+  <!-- MODAL 3: STUDENT JOIN FLOW -->
+  <div class="modal-overlay" id="modalStudentJoin">
+    <div class="modal">
+      <h2 class="modal__title">🎓 INGRESO DE ESTUDIANTE</h2>
+      <p class="modal__subtitle">Ingresa tus datos para unirte a la sesión:</p>
 
-      <div class="form-group">
-        <label class="form-group__label" for="selectNumTeams">Número de Equipos en Clase:</label>
-        <select id="selectNumTeams" class="form-group__input" style="background: var(--color-bg-dark); color: #fff;">
-          <option value="4">4 Equipos (4 cartas por mano)</option>
-          <option value="3">3 Equipos (5 cartas por mano)</option>
-          <option value="2">2 Equipos (6 cartas por mano)</option>
-        </select>
+      <form onsubmit="handleStudentJoinSubmit(event)">
+        <div class="form-group">
+          <label class="form-group__label" for="inputStudentNameJoin">Tu Nombre / Alias:</label>
+          <input type="text" id="inputStudentNameJoin" class="form-group__input" placeholder="Ej: Alex Mercer" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-group__label" for="inputStudentRoomCode">Código de Sala (Profesor):</label>
+          <input type="text" id="inputStudentRoomCode" class="form-group__input" placeholder="Ej: AULA-101" value="AULA-101" required>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
+          <button type="submit" class="btn-primary">¡UNIRSE A LA PARTIDA! 🚀</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 4: PERSISTENT VIEW TEAMS ROSTER -->
+  <div class="modal-overlay" id="modalViewTeams">
+    <div class="modal" style="max-width: 650px;">
+      <h2 class="modal__title">👥 ASIGNACIÓN DE INTEGRANTES POR EQUIPO</h2>
+      <p class="modal__subtitle">Consulta los estudiantes asignados a cada grupo:</p>
+
+      <div class="lobby-teams-grid" id="modalTeamsRosterContent">
+        <!-- Dynamically rendered list of teams & students -->
       </div>
 
-      <div class="lobby-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-family: var(--font-heading); color: var(--color-neon-cyan);">CÓDIGO DE SALA:</span>
-          <span class="room-badge" id="lobbyRoomCode">AULA-101</span>
-        </div>
-        <p style="font-size: 0.85rem; color: var(--color-text-muted);">
-          Los estudiantes que ingresen con este código serán asignados <strong>aleatoria y equitativamente</strong> entre los equipos.
-        </p>
-
-        <div class="lobby-teams-grid" id="lobbyTeamsGrid">
-          <!-- Dynamically filled with joined students per team -->
-        </div>
-      </div>
-
-      <button class="btn-primary" onclick="handleTeacherStartGame()">
-        🚀 ¡INICIAR PARTIDA EN VIVO EN AULA!
+      <button class="btn-primary" onclick="closeViewTeamsModal()">
+        ENTENDIDO 👍
       </button>
     </div>
   </div>
 
-  <!-- MODAL 3: DIAGNOSTIC & GAME OVER SUMMARY -->
+  <!-- MODAL 5: DIAGNOSTIC & GAME OVER SUMMARY -->
   <div class="modal-overlay" id="modalDiagnostic">
     <div class="modal" style="max-width: 600px;">
       <h2 class="modal__title" id="diagTitle">🏆 ¡PARTIDA FINALIZADA!</h2>

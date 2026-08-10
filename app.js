@@ -92,15 +92,14 @@ const ALL_TEAMS = [
 
 // STATE MANAGEMENT
 let gameState = {
-  gameMode: "projector",
+  gameMode: "projector", // "projector" or "online"
   numTeams: 4,
   initialCardsPerTeam: 4,
-  isCompactView: false,
   
-  playerName: "Alex Mercer",
+  playerName: "",
   userTeamId: 0,
   roomCode: "AULA-101",
-  joinedStudents: [],
+  joinedStudents: [], // Array of objects { name, teamId }
   
   reserveDeck: [],
   tableCards: [],
@@ -209,7 +208,7 @@ function launchConfetti() {
 }
 
 /* ==========================================================================
-   INITIALIZATION & NAVIGATION
+   INITIALIZATION & ROLE SELECTION FLOW
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
   renderTeacherDashboard();
@@ -237,25 +236,136 @@ function switchView(viewName) {
   }
 }
 
-function selectGameMode(mode) {
-  gameState.gameMode = mode;
-  document.getElementById("btnModeProjector").className = mode === 'projector' ? "mode-btn mode-btn--active" : "mode-btn";
-  document.getElementById("btnModeMultiTab").className = mode === 'multitab' ? "mode-btn mode-btn--active" : "mode-btn";
-  document.getElementById("btnModeOnline").className = mode === 'online' ? "mode-btn mode-btn--active" : "mode-btn";
+function openRoleSelectionModal() {
+  closeAllModals();
+  document.getElementById("modalRoleSelection").classList.add("modal-overlay--active");
+}
 
-  const roomGroup = document.getElementById("roomCodeGroup");
-  if (mode === 'projector') {
-    document.getElementById("currentModeLabel").textContent = "📺 Proyector de Aula (1 Pantalla)";
-    if (roomGroup) roomGroup.style.display = "none";
-  } else if (mode === 'multitab') {
-    document.getElementById("currentModeLabel").textContent = "💻 Local (Multi-pestaña)";
-    if (roomGroup) roomGroup.style.display = "none";
+function closeAllModals() {
+  document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("modal-overlay--active"));
+}
+
+function selectInitialRole(role) {
+  closeAllModals();
+  if (role === 'teacher') {
+    document.getElementById("modalTeacherConfig").classList.add("modal-overlay--active");
+    toggleTeacherModeFields();
   } else {
-    document.getElementById("currentModeLabel").textContent = "📱 Multijugador Online (Celulares)";
-    if (roomGroup) roomGroup.style.display = "flex";
+    document.getElementById("modalStudentJoin").classList.add("modal-overlay--active");
   }
-  updateHud();
-  renderTeamHand();
+}
+
+function toggleTeacherModeFields() {
+  const mode = document.getElementById("selectGameModeSetting").value;
+  const studentListGroup = document.getElementById("teacherStudentListGroup");
+  const roomCodeGroup = document.getElementById("teacherRoomCodeGroup");
+
+  if (mode === 'projector') {
+    studentListGroup.style.display = "flex";
+    roomCodeGroup.style.display = "none";
+  } else {
+    studentListGroup.style.display = "none";
+    roomCodeGroup.style.display = "flex";
+  }
+}
+
+function handleTeacherSubmitConfig(e) {
+  e.preventDefault();
+  const mode = document.getElementById("selectGameModeSetting").value;
+  const numTeams = parseInt(document.getElementById("selectNumTeamsSetting").value, 10);
+  
+  gameState.gameMode = mode;
+  gameState.numTeams = numTeams;
+  
+  if (numTeams === 2) gameState.initialCardsPerTeam = 6;
+  else if (numTeams === 3) gameState.initialCardsPerTeam = 5;
+  else gameState.initialCardsPerTeam = 4;
+
+  gameState.joinedStudents = [];
+
+  if (mode === 'projector') {
+    const rawList = document.getElementById("textareaStudentList").value.trim();
+    if (rawList) {
+      const names = rawList.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length > 0);
+      names.forEach((name, idx) => {
+        const teamId = idx % numTeams;
+        gameState.joinedStudents.push({ name, teamId });
+      });
+    }
+  }
+
+  closeAllModals();
+  applyGameModeUI();
+  initNewGame();
+}
+
+function handleStudentJoinSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById("inputStudentNameJoin").value.trim();
+  const code = document.getElementById("inputStudentRoomCode").value.trim();
+  if (!name) return;
+
+  gameState.playerName = name;
+  gameState.roomCode = code;
+  gameState.gameMode = "online";
+
+  const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
+  gameState.userTeamId = assignedTeamIndex;
+  gameState.joinedStudents.push({ name, teamId: assignedTeamIndex });
+
+  closeAllModals();
+  applyGameModeUI();
+  initNewGame();
+}
+
+// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ SEGÚN EL MODO DE JUEGO
+function applyGameModeUI() {
+  const layout = document.getElementById("mainGameLayout");
+  const chatSidebar = document.getElementById("teamChatSidebar");
+  const playerBox = document.getElementById("hudCardPlayerBox");
+  const modeLabel = document.getElementById("currentModeLabel");
+  const teamsBadge = document.getElementById("activeTeamsBadge");
+
+  teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
+
+  if (gameState.gameMode === 'projector') {
+    modeLabel.textContent = "📺 Proyector de Aula (1 Pantalla)";
+    layout.classList.add("game-layout--no-chat");
+    if (chatSidebar) chatSidebar.style.display = "none";
+    if (playerBox) playerBox.style.display = "none";
+  } else {
+    modeLabel.textContent = "📱 Multijugador Online (Celulares)";
+    layout.classList.remove("game-layout--no-chat");
+    if (chatSidebar) chatSidebar.style.display = "flex";
+    if (playerBox) playerBox.style.display = "flex";
+  }
+}
+
+// 👥 PERSISTENT VIEW TEAMS MODAL
+function openViewTeamsModal() {
+  const container = document.getElementById("modalTeamsRosterContent");
+  container.innerHTML = "";
+
+  for (let t = 0; t < gameState.numTeams; t++) {
+    const team = ALL_TEAMS[t];
+    const members = gameState.joinedStudents.filter(s => s.teamId === t);
+
+    const box = document.createElement("div");
+    box.className = "lobby-team-box";
+    box.innerHTML = `
+      <div class="lobby-team-box__title" style="color: ${team.color};">${team.icon} ${team.name} (${members.length} integrantes)</div>
+      <ul class="lobby-team-box__list">
+        ${members.length > 0 ? members.map(m => `<li>👤 ${m.name}</li>`).join("") : `<li style="color: var(--color-text-muted);">Sin asignaciones registradas</li>`}
+      </ul>
+    `;
+    container.appendChild(box);
+  }
+
+  document.getElementById("modalViewTeams").classList.add("modal-overlay--active");
+}
+
+function closeViewTeamsModal() {
+  document.getElementById("modalViewTeams").classList.remove("modal-overlay--active");
 }
 
 function setupTimelineScrollWheel() {
@@ -276,51 +386,9 @@ function scrollTimelineTrack(distance) {
   }
 }
 
-function toggleCompactTimelineView() {
-  gameState.isCompactView = !gameState.isCompactView;
-  const track = document.getElementById("timelineTrack");
-  if (track) {
-    if (gameState.isCompactView) {
-      track.classList.add("timeline-table__scroll-area--compact");
-    } else {
-      track.classList.remove("timeline-table__scroll-area--compact");
-    }
-  }
-}
-
 /* ==========================================================================
    GAMEPLAY ENGINE
    ========================================================================== */
-
-function handleStartGame(e) {
-  e.preventDefault();
-  const name = document.getElementById("inputStudentName").value.trim();
-  if (!name) return;
-
-  gameState.playerName = name;
-  const assignedTeamIndex = gameState.joinedStudents.length % gameState.numTeams;
-  gameState.userTeamId = assignedTeamIndex;
-  gameState.joinedStudents.push({ name, teamId: assignedTeamIndex });
-
-  document.getElementById("modalStudentRegister").classList.remove("modal-overlay--active");
-  initNewGame();
-}
-
-function openTeacherRoomModal() {
-  document.getElementById("modalTeacherRoom").classList.add("modal-overlay--active");
-}
-
-function handleTeacherStartGame() {
-  const numTeams = parseInt(document.getElementById("selectNumTeams").value, 10);
-  gameState.numTeams = numTeams;
-
-  if (numTeams === 2) gameState.initialCardsPerTeam = 6;
-  else if (numTeams === 3) gameState.initialCardsPerTeam = 5;
-  else gameState.initialCardsPerTeam = 4;
-
-  document.getElementById("modalTeacherRoom").classList.remove("modal-overlay--active");
-  initNewGame();
-}
 
 function initNewGame() {
   gameState.reserveDeck = shuffleArray([...HISTORICAL_EVENTS]);
@@ -363,19 +431,25 @@ function shuffleArray(arr) {
   return arr;
 }
 
-// 🎯 DIFERENCIACIÓN CLARA DE LAS CAJAS DEL HUD (IMAGEN 1)
 function updateHud() {
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
   }
 
-  // CAJA 1: EQUIPO EN TURNO
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  // CAJA 2: JUGADOR DE TURNO (Muestra el nombre del jugador real o representante)
-  const playerNameDisplay = gameState.playerName ? gameState.playerName : `Representante ${currentTeam.name}`;
-  document.getElementById("hudActiveTurnPlayer").textContent = playerNameDisplay;
+  const teamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
+  let activePlayerName = "";
+  if (teamMembers.length > 0) {
+    const randomMember = teamMembers[Math.floor(Math.random() * teamMembers.length)];
+    activePlayerName = randomMember.name;
+  } else {
+    activePlayerName = gameState.playerName ? gameState.playerName : `Representante ${currentTeam.name}`;
+  }
+
+  const playerValEl = document.getElementById("hudActiveTurnPlayer");
+  if (playerValEl) playerValEl.textContent = activePlayerName;
   
   const currentHand = gameState.teamHands[gameState.userTeamId] || [];
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
@@ -560,7 +634,6 @@ function handleSlotClick(slotIndex) {
   renderTimelineTable();
   renderTeamHand();
 
-  // Scroll automático hacia la posición insertada con margen cómodo
   setTimeout(() => {
     const track = document.getElementById("timelineTrack");
     if (track) {
@@ -633,13 +706,14 @@ function handleSendChatMessage(e) {
   const msgText = input.value.trim();
   if (!msgText) return;
 
-  const sender = `${gameState.playerName} (${ALL_TEAMS[gameState.userTeamId].name})`;
+  const sender = `${gameState.playerName ? gameState.playerName : 'Jugador'} (${ALL_TEAMS[gameState.userTeamId].name})`;
   addChatMessage(sender, msgText);
   input.value = "";
 }
 
 function addChatMessage(sender, text) {
   const container = document.getElementById("chatMessages");
+  if (!container) return;
   const msgEl = document.createElement("div");
   msgEl.className = "chat-msg";
   msgEl.innerHTML = `
@@ -715,19 +789,6 @@ function renderTeacherDashboard() {
   }
 }
 
-function simulateStudentSubmission() {
-  if (gameState.isGameOver) return;
-  const activeTeamIndex = gameState.currentTurnTeamIndex;
-  const activeHand = gameState.teamHands[activeTeamIndex];
-  if (!activeHand || activeHand.length === 0) return;
-
-  const slots = gameState.tableCards.length + 1;
-  const randomSlot = Math.floor(Math.random() * slots);
-
-  gameState.selectedHandCardId = activeHand[0].id;
-  handleSlotClick(randomSlot);
-}
-
 async function sendWebhookTelemetry() {
   if (!WEBHOOK_URL) return;
   const payload = {
@@ -750,7 +811,7 @@ async function sendWebhookTelemetry() {
 
 function restartGame() {
   document.getElementById("modalDiagnostic").classList.remove("modal-overlay--active");
-  document.getElementById("modalStudentRegister").classList.add("modal-overlay--active");
+  openRoleSelectionModal();
 }
 
 function closeDiagnosticAndGoDashboard() {
