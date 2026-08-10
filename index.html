@@ -66,7 +66,8 @@
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
-        <button class="btn-secondary" style="font-size: 0.75rem; padding: 0.3rem 0.7rem;" onclick="openRoleSelectionModal()">
+        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+        <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
           🔄 Cambiar Modo / Crear Partida
         </button>
       </div>
@@ -88,7 +89,7 @@
           </div>
         </div>
 
-        <!-- BOX 2: JUGADOR DE TURNO (Solo visible si hay nombres o modo online) -->
+        <!-- BOX 2: JUGADOR DE TURNO -->
         <div class="hud-card hud-card--player" id="hudCardPlayerBox">
           <span class="hud-card__icon">👤</span>
           <div class="hud-card__content">
@@ -114,7 +115,7 @@
 
       </div>
 
-      <!-- MAIN GAME LAYOUT (Dynamic grid class: game-layout--no-chat in projector mode) -->
+      <!-- MAIN GAME LAYOUT -->
       <div class="game-layout" id="mainGameLayout">
         
         <div class="game-layout__main-col">
@@ -129,7 +130,7 @@
                 </span>
               </div>
 
-              <!-- CONTROLES DE NAVEGACIÓN DE PANTALLA COMPLETA -->
+              <!-- CONTROLES DE NAVEGACIÓN -->
               <div class="timeline-table__controls">
                 <button class="nav-arrow-btn" onclick="scrollTimelineTrack(-380)" title="Deslizar a la izquierda">◀ IZQUIERDA</button>
                 <button class="nav-arrow-btn" onclick="scrollTimelineTrack(380)" title="Deslizar a la derecha">DERECHA ▶</button>
@@ -156,7 +157,7 @@
 
         </div>
 
-        <!-- RIGHT SIDEBAR: TEAM CHAT BOX (Hidden automatically in Projector Mode) -->
+        <!-- RIGHT SIDEBAR: TEAM CHAT BOX -->
         <div class="chat-box" id="teamChatSidebar">
           <div class="chat-box__header">
             <span>💬 CHAT EN VIVO DEL EQUIPO</span>

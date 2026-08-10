@@ -92,6 +92,7 @@ const ALL_TEAMS = [
 
 // STATE MANAGEMENT
 let gameState = {
+  userRole: "teacher", // "teacher" or "student"
   gameMode: "projector", // "projector" or "online"
   numTeams: 4,
   initialCardsPerTeam: 4,
@@ -99,7 +100,7 @@ let gameState = {
   playerName: "",
   userTeamId: 0,
   roomCode: "AULA-101",
-  joinedStudents: [], // Array of objects { name, teamId }
+  joinedStudents: [],
   
   reserveDeck: [],
   tableCards: [],
@@ -246,6 +247,7 @@ function closeAllModals() {
 }
 
 function selectInitialRole(role) {
+  gameState.userRole = role;
   closeAllModals();
   if (role === 'teacher') {
     document.getElementById("modalTeacherConfig").classList.add("modal-overlay--active");
@@ -271,6 +273,7 @@ function toggleTeacherModeFields() {
 
 function handleTeacherSubmitConfig(e) {
   e.preventDefault();
+  gameState.userRole = "teacher";
   const mode = document.getElementById("selectGameModeSetting").value;
   const numTeams = parseInt(document.getElementById("selectNumTeamsSetting").value, 10);
   
@@ -301,6 +304,7 @@ function handleTeacherSubmitConfig(e) {
 
 function handleStudentJoinSubmit(e) {
   e.preventDefault();
+  gameState.userRole = "student";
   const name = document.getElementById("inputStudentNameJoin").value.trim();
   const code = document.getElementById("inputStudentRoomCode").value.trim();
   if (!name) return;
@@ -318,15 +322,23 @@ function handleStudentJoinSubmit(e) {
   initNewGame();
 }
 
-// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ SEGÚN EL MODO DE JUEGO
+// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ Y VISIBILIDAD DE BOTONES
 function applyGameModeUI() {
   const layout = document.getElementById("mainGameLayout");
   const chatSidebar = document.getElementById("teamChatSidebar");
   const playerBox = document.getElementById("hudCardPlayerBox");
   const modeLabel = document.getElementById("currentModeLabel");
   const teamsBadge = document.getElementById("activeTeamsBadge");
+  const btnChangeMode = document.getElementById("btnChangeModeSetting");
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
+
+  // BOTÓN "🔄 CAMBIAR MODO": SOLO VISIBLE SI EL ROL ES PROFESOR
+  if (gameState.userRole === 'teacher') {
+    if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
+  } else {
+    if (btnChangeMode) btnChangeMode.style.display = "none";
+  }
 
   if (gameState.gameMode === 'projector') {
     modeLabel.textContent = "📺 Proyector de Aula (1 Pantalla)";
