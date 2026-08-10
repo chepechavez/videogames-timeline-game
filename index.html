@@ -42,11 +42,12 @@
         👥 Ver Equipos
       </button>
 
-      <nav class="app-header__nav" aria-label="Navegación principal">
+      <nav class="app-header__nav" id="appHeaderNav" aria-label="Navegación principal">
         <button class="app-header__tab-btn app-header__tab-btn--active" id="tabStudentBtn" onclick="switchView('student')">
           <span>🎮</span> Juego por Equipos
         </button>
-        <button class="app-header__tab-btn" id="tabTeacherBtn" onclick="switchView('teacher')">
+        <!-- BOTÓN DASHBOARD PROFESOR: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+        <button class="app-header__tab-btn" id="tabTeacherBtn" style="display: none;" onclick="switchView('teacher')">
           <span>📊</span> Dashboard Profesor
         </button>
       </nav>
@@ -66,7 +67,7 @@
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
-        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR (Oculto para estudiantes) -->
+        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR -->
         <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
           🔄 Cambiar Modo / Crear Partida
         </button>

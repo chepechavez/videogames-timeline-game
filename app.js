@@ -218,6 +218,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function switchView(viewName) {
+  // SEGURIDAD: SI EL ROL ES ESTUDIANTE, BLOQUEAR ACCESO AL DASHBOARD DEL PROFESOR
+  if (gameState.userRole === 'student' && viewName === 'teacher') {
+    alert("⛔ Acceso restringido: El Dashboard del Profesor solo está disponible para el docente.");
+    return;
+  }
+
   const studentView = document.getElementById("studentView");
   const teacherView = document.getElementById("teacherView");
   const tabStudentBtn = document.getElementById("tabStudentBtn");
@@ -227,12 +233,12 @@ function switchView(viewName) {
     studentView.classList.add("view-section--active");
     teacherView.classList.remove("view-section--active");
     tabStudentBtn.className = "app-header__tab-btn app-header__tab-btn--active";
-    tabTeacherBtn.className = "app-header__tab-btn";
+    if (tabTeacherBtn) tabTeacherBtn.className = "app-header__tab-btn";
   } else {
     teacherView.classList.add("view-section--active");
     studentView.classList.remove("view-section--active");
     tabStudentBtn.className = "app-header__tab-btn";
-    tabTeacherBtn.className = "app-header__tab-btn app-header__tab-btn--active-teacher";
+    if (tabTeacherBtn) tabTeacherBtn.className = "app-header__tab-btn app-header__tab-btn--active-teacher";
     renderTeacherDashboard();
   }
 }
@@ -322,6 +328,7 @@ function handleStudentJoinSubmit(e) {
   initNewGame();
 }
 
+// 🎨 ADAPTACIÓN DINÁMICA DE LA INTERFAZ Y RESTRICCIONES SEGÚN ROL
 function applyGameModeUI() {
   const layout = document.getElementById("mainGameLayout");
   const chatSidebar = document.getElementById("teamChatSidebar");
@@ -329,13 +336,18 @@ function applyGameModeUI() {
   const modeLabel = document.getElementById("currentModeLabel");
   const teamsBadge = document.getElementById("activeTeamsBadge");
   const btnChangeMode = document.getElementById("btnChangeModeSetting");
+  const tabTeacherBtn = document.getElementById("tabTeacherBtn");
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
 
+  // CONTROL RESTRINGIDO: DASHBOARD PROFESOR Y BOTÓN REINICIAR SOLO PARA PROFESOR
   if (gameState.userRole === 'teacher') {
     if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
+    if (tabTeacherBtn) tabTeacherBtn.style.display = "inline-flex";
   } else {
     if (btnChangeMode) btnChangeMode.style.display = "none";
+    if (tabTeacherBtn) tabTeacherBtn.style.display = "none";
+    switchView('student'); // Si estaba en vista docente, fuerza retorno a estudiante
   }
 
   if (gameState.gameMode === 'projector') {
@@ -440,7 +452,6 @@ function shuffleArray(arr) {
   return arr;
 }
 
-// 🎯 CORRECCIÓN CLAVE DEL MISMATCH DE EQUIPO VS JUGADOR
 function updateHud() {
   if (gameState.gameMode === 'projector') {
     gameState.userTeamId = gameState.currentTurnTeamIndex;
@@ -449,7 +460,6 @@ function updateHud() {
   const currentTeam = ALL_TEAMS[gameState.currentTurnTeamIndex];
   document.getElementById("hudTeamName").textContent = `${currentTeam.icon} ${currentTeam.name}`;
   
-  // OBTENER SOLAMENTE MIEMBROS ASIGNADOS AL EQUIPO QUE TIENE EL TURNO ACTIVO
   const activeTeamMembers = gameState.joinedStudents.filter(s => s.teamId === gameState.currentTurnTeamIndex);
   let activePlayerName = "";
   
@@ -457,7 +467,6 @@ function updateHud() {
     const randomMember = activeTeamMembers[Math.floor(Math.random() * activeTeamMembers.length)];
     activePlayerName = randomMember.name;
   } else {
-    // SI EL EQUIPO EN TURNO NO TIENE INTEGRANTES REGISTRADOS, MOSTRAR NOMBRE DEL EQUIPO Y NO FALLBACK A OTRO ESTUDIANTE
     activePlayerName = `Representante ${currentTeam.name}`;
   }
 
