@@ -84,7 +84,7 @@
           </div>
         </div>
 
-        <!-- BOX 2: JUGADOR / REPRESENTANTE DE TURNO -->
+        <!-- BOX 2: JUGADOR DE TURNO -->
         <div class="hud-card hud-card--player">
           <span class="hud-card__icon">👤</span>
           <div class="hud-card__content">
@@ -113,7 +113,8 @@
       <!-- MAIN GAME LAYOUT: CENTRAL TABLE + CHAT -->
       <div class="game-layout">
         
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- MAIN COLUMN CONSTRAINED WITH MIN-WIDTH: 0 -->
+        <div class="game-layout__main-col">
           
           <!-- TIMELINE CENTRAL TABLE -->
           <div class="timeline-table">
@@ -135,7 +136,7 @@
               </div>
             </div>
 
-            <!-- Scrollable insertion track (full width, generous padding) -->
+            <!-- Scrollable insertion track -->
             <div class="timeline-table__scroll-area" id="timelineTrack">
               <!-- Dynamically populated insertion slots [+] and cards -->
             </div>
