@@ -2,7 +2,7 @@
 
 > **Documento de Referencia Viva (Single Source of Truth)**  
 > Este documento se actualiza en **cada actualización del repositorio** para mantener sincronizado el contexto entre los dos equipos de trabajo.  
-> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.0`)  
+> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.1`)  
 > **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`  
 > **Despliegue activo:** GitHub Pages (`https://chepechavez.github.io/videogames-timeline-game/`)
 
@@ -33,9 +33,9 @@
 
 ```text
 videogames-timeline-game/
-├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, inspección, diagnóstico), HUD y KPIs (v=12.0)
-├── app.js                   # Motor Timeline, validación de salas, sincronización completa Supabase Realtime y audio Web Audio API (v=12.0)
-├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive y estilos del minitutorial (v=12.0)
+├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, inspección, diagnóstico), HUD y KPIs (v=12.1)
+├── app.js                   # Motor Timeline, validación de salas, sincronización completa Supabase Realtime y audio Web Audio API (v=12.1)
+├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive y estilos del minitutorial (v=12.1)
 ├── Videogames - Timeline.md # Catálogo fuente de los 74 eventos con imágenes oficiales
 └── PROJECT_STATE.md         # (Este archivo) Estado actual del proyecto, historial y backlog
 ```
@@ -50,7 +50,7 @@ videogames-timeline-game/
 - [x] Barajado y reparto equitativo de cartas iniciales por equipo (2 equipos = 6 cartas, 3 equipos = 5 cartas, 4 equipos = 4 cartas).
 - [x] Carta ancla inicial revelada en la mesa central.
 - [x] Validación estricta de colocación cronológica (*Antes*, *Entre* o *Después*).
-- [x] Mecánica oficial de penalización: ante un error, se roba primero una nueva carta del `reserveDeck` sincronizado y la carta fallida vuelve barajada al mazo (evitando robar la misma carta).
+- [x] **Regla pedagógica de conservación de tarjeta en fallo (v12.1):** Cuando un equipo se equivoca, la tarjeta **no se retira de su mano** ni se revela su año exacto en el chat, permitiendo que el equipo deduzca y vuelva a intentarlo en un turno posterior (cediendo inmediatamente el turno actual).
 - [x] **Cesión estricta de turno (Fix v12.0):** Independientemente de acierto, fallo o tiempo agotado, el turno **siempre** pasa al siguiente equipo. Sincronización completa de `currentRoundTurnCount`, `reserveDeck`, `teamTurnCounts`, `isTieBreakMode` y `tieBreakTeamIndices` mediante `buildGameSyncPayload()` / `applyIncomingGamePayload()`.
 - [x] **Rotación justa de representantes por equipo (Fix v12.0):** Contador individual `teamTurnCounts` por equipo para que todos los integrantes de cada equipo roten equitativamente sin sesgo de paridad cuando se juega con 2 o 4 equipos.
 - [x] Evaluación formal al cierre de ronda (igualdad de turnos jugados) y desempate en *muerte súbita* (*Sudden Death*).
@@ -72,14 +72,14 @@ videogames-timeline-game/
 
 #### C. Audio, Efectos Visuales y Despliegue:
 - [x] Sintetizador retro con `Web Audio API`, partículas de confetti en canvas, popups de racha y overlay CRT.
-- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.0`.
+- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.1`.
 
 ---
 
 ## 🎯 5. ¿Qué Sigue? (Backlog & Próximas Mejoras Opcionales)
 
-1. **Pruebas en vivo de validación v12.0:**
-   - Verificar en sesión real con 2 equipos la rotación estricta de turnos, el bloqueo de ingreso previo a crear la sala y la legibilidad del mini-tutorial en celulares.
+1. **Pruebas en vivo de validación v12.1:**
+   - Verificar en sesión real la rotación estricta de turnos, la conservación de tarjeta al fallar para reintentar, el bloqueo de ingreso previo a crear la sala y el mini-tutorial en celulares.
 2. **Exportación de Reporte Académico Docente (CSV):**
    - Botón opcional en el panel del profesor al finalizar la partida para descargar métricas por equipo e integrantes.
 3. **Filtro de Épocas / Categorías Históricas:**
@@ -114,7 +114,8 @@ videogames-timeline-game/
 
 | Commit / Versión | Descripción Resumida |
 | :--- | :--- |
-| `v12.0` *(actual)* | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s en sala de espera |
+| `v12.1` *(actual)* | Ajusta regla de fallo para conservar la tarjeta en la mano del equipo (permitiendo reintentar sin revelar su año) y actualiza el mini-tutorial |
+| `7115b0c` (`v12.0`) | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s |
 | `12030ec` | Docs: Creación inicial de `PROJECT_STATE.md` para trabajo entre dos equipos |
 | `41139a4` | Secuenciación monotónica `turnSequence` y salto de equipos sin cartas |
 | `626e476` | Limpieza de flechas redundantes del track de timeline |

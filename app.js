@@ -1029,7 +1029,7 @@ function applyGameModeUI() {
     modeLabel.textContent = "📺 Proyector de Aula (1 Pantalla)";
     layout.classList.add("game-layout--no-chat");
     if (chatSidebar) chatSidebar.style.display = "none";
-    if (playerBox) playerBox.style.display = "none";
+    if (playerBox) playerBox.style.display = gameState.joinedStudents.length > 0 ? "flex" : "none";
   } else {
     modeLabel.textContent = `📱 Multijugador Online (Sala: ${gameState.roomCode})`;
     layout.classList.remove("game-layout--no-chat");
@@ -1473,19 +1473,9 @@ function handleSlotClick(slotIndex) {
 
     gameState.cardErrorTracker[cardToPlace.id] = (gameState.cardErrorTracker[cardToPlace.id] || 0) + 1;
 
-    activeHand.splice(cardIndexInHand, 1);
-
-    // Robar primero una carta distinta del mazo antes de reinsertar la fallida (evita robar la misma carta)
-    if (gameState.reserveDeck.length > 0) {
-      const newCard = gameState.reserveDeck.pop();
-      activeHand.push(newCard);
-      trackCardSeen(newCard.id);
-    }
-    gameState.reserveDeck.push(cardToPlace);
-    gameState.reserveDeck = shuffleArray(gameState.reserveDeck);
-
+    // La tarjeta permanece en la mano del equipo (con su año oculto) para que puedan reintentar en su próximo turno
     gameState.selectedHandCardId = null;
-    addChatMessage("🤖 Sistema", `❌ FALLO. ${ALL_TEAMS[activeTeamIndex].name} erró la fecha de '${cardToPlace.title}' (${cardToPlace.year}). La carta volvió al mazo y robaron una nueva.`);
+    addChatMessage("🤖 Sistema", `❌ FALLO. ${ALL_TEAMS[activeTeamIndex].name} no acertó la ubicación cronológica de '${cardToPlace.title}'. Conservan la tarjeta en su mano para reintentar en su próximo turno.`);
   }
 
   renderTimelineTable();
