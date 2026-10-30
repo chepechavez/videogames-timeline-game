@@ -1,9 +1,10 @@
 # 🕹️ Videogames Timeline Game — Project State & Handoff
 
 > **Documento de Referencia Viva (Single Source of Truth)**  
-> Diseñado para coordinar el desarrollo y mantener la continuidad del trabajo entre dos equipos de cómputo distintos.  
-> **Última actualización:** 30 de octubre de 2026  
-> **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`
+> Este documento se actualiza en **cada actualización del repositorio** para mantener sincronizado el contexto entre los dos equipos de trabajo.  
+> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.0`)  
+> **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`  
+> **Despliegue activo:** GitHub Pages (`https://chepechavez.github.io/videogames-timeline-game/`)
 
 ---
 
@@ -11,19 +12,20 @@
 
 **Videogames Timeline Game** es una aplicación web educativa interactiva inspirada en las reglas oficiales del juego de mesa *Timeline*. Los estudiantes compiten en equipos colocando cronológicamente en una línea de tiempo común 74 hitos históricos fundamentales de la industria de los videojuegos (desde 1940 con la Computadora Nim hasta 2024 con Astro Bot), utilizando información e imágenes de archivo de *The Strong National Museum of Play*.
 
-### Modos de Uso Soportados:
-1. **Modo Proyector de Aula (1 Pantalla):** Una sola pantalla visible para todo el salón; los equipos juegan por turnos de forma presencial.
-2. **Modo Multijugador Online (Multi-dispositivo):** Hasta 500 estudiantes conectados en tiempo real desde sus propios dispositivos con sincronización en vivo mediante Supabase Realtime (WebSockets Broadcast & Presence).
+### Modos de Uso:
+1. **Modo Proyector de Aula (1 Pantalla):** Una sola pantalla central visible para todo el salón; los equipos juegan por turnos de forma presencial.
+2. **Modo Multijugador Online (Multi-dispositivo):** Hasta 500 estudiantes conectados en tiempo real desde sus propios dispositivos con sincronización en vivo mediante Supabase Realtime (WebSockets Broadcast).
 
 ---
 
 ## 🛠️ 2. Stack Tecnológico & Arquitectura
 
-* **Frontend:** Vanilla JavaScript (ES6+), HTML5 semántico y CSS3 moderno (arquitectura BEM, variables CSS y diseño responsive).
-* **Estilo Visual:** Cyberpunk / Retro Arcade, tipografía Google Fonts (*Orbitron* y *Rajdhani*), paleta de neón (Cian, Magenta, Amarillo, Verde lima) con filtro CRT retro opcional.
-* **Sin dependencias pesadas ni bundler:** No requiere `node_modules`, Vite, Webpack ni proceso de compilación. Corre directo en cualquier navegador moderno o servidor local estático.
-* **Backend / Sincronización:** Supabase Realtime Client v2 (`@supabase/supabase-js@2` cargado vía CDN) para broadcast de eventos de baja latencia entre el docente y los estudiantes.
-* **Datos Históricos:** 74 eventos rigurosamente documentados en `app.js` y catalogados en `Videogames - Timeline.md`.
+* **Frontend:** Vanilla JavaScript (ES6+), HTML5 semántico y CSS3 moderno (arquitectura BEM, variables CSS y diseño responsive con modales desplazables `max-height: 92vh`).
+* **Estilo Visual:** Cyberpunk / Retro Arcade, tipografía Google Fonts (*Orbitron* y *Rajdhani*), paleta de neón (Cian, Magenta, Amarillo, Verde lima) con filtro CRT retro.
+* **Audio:** Efectos de sonido retro sintetizados nativos con `Web Audio API` (`playSynthSound`: `tick`, `success`, `error`, `victory`), sin archivos MP3 externos.
+* **Despliegue:** 100% estático y funcional en producción vía GitHub Pages. Sin `node_modules` ni paso de compilación.
+* **Backend / Sincronización:** Supabase Realtime Client v2 (`@supabase/supabase-js@2` vía CDN) para broadcast de eventos en tiempo real entre docente y estudiantes.
+* **Datos Históricos:** 74 eventos catalogados en `Videogames - Timeline.md` y compilados en `app.js`.
 
 ---
 
@@ -31,11 +33,11 @@
 
 ```text
 videogames-timeline-game/
-├── index.html               # Estructura DOM, modales de rol/lobby/inspección, HUD y KPIs
-├── app.js                   # Lógica de juego, barajas, reglas Timeline, Supabase Realtime
-├── styles.css               # Sistema de diseño, variables neón, layout flex/grid, animaciones
+├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, inspección, diagnóstico), HUD y KPIs (v=12.0)
+├── app.js                   # Motor Timeline, validación de salas, sincronización completa Supabase Realtime y audio Web Audio API (v=12.0)
+├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive y estilos del minitutorial (v=12.0)
 ├── Videogames - Timeline.md # Catálogo fuente de los 74 eventos con imágenes oficiales
-└── PROJECT_STATE.md         # (Este archivo) Estado actual, tareas y guía de sincronización
+└── PROJECT_STATE.md         # (Este archivo) Estado actual del proyecto, historial y backlog
 ```
 
 ---
@@ -45,116 +47,80 @@ videogames-timeline-game/
 ### ✅ Características Implementadas y Estables:
 
 #### A. Mecánicas de Juego (*Timeline Rules*):
-- [x] Barajado y reparto equitativo de cartas iniciales por equipo (configurable de 2 a 6 cartas).
-- [x] Carta inicial revelada en la mesa central como punto de partida histórico.
-- [x] Validación estricta de colocación cronológica (rango anterior, intermedio y posterior).
-- [x] Mecánica oficial de error: si un equipo falla el año, la carta errónea se descarta y el equipo roba una nueva carta de penalización.
-- [x] Evaluación formal de final de ronda: todos los equipos juegan el mismo número de turnos por ronda.
-- [x] Sistema de desempate en *muerte súbita* (*Sudden Death*) en caso de que varios equipos vacíen su mano en la misma ronda.
-- [x] Salto inteligente de turno: si un equipo ya se quedó sin cartas esperando el fin de ronda, el turno salta automáticamente a los equipos que aún tienen cartas pendientes.
-- [x] Reloj de turno sincronizado en tiempo real (30 segundos por defecto, reseteable al colocar carta).
+- [x] Barajado y reparto equitativo de cartas iniciales por equipo (2 equipos = 6 cartas, 3 equipos = 5 cartas, 4 equipos = 4 cartas).
+- [x] Carta ancla inicial revelada en la mesa central.
+- [x] Validación estricta de colocación cronológica (*Antes*, *Entre* o *Después*).
+- [x] Mecánica oficial de penalización: ante un error, se roba primero una nueva carta del `reserveDeck` sincronizado y la carta fallida vuelve barajada al mazo (evitando robar la misma carta).
+- [x] **Cesión estricta de turno (Fix v12.0):** Independientemente de acierto, fallo o tiempo agotado, el turno **siempre** pasa al siguiente equipo. Sincronización completa de `currentRoundTurnCount`, `reserveDeck`, `teamTurnCounts`, `isTieBreakMode` y `tieBreakTeamIndices` mediante `buildGameSyncPayload()` / `applyIncomingGamePayload()`.
+- [x] **Rotación justa de representantes por equipo (Fix v12.0):** Contador individual `teamTurnCounts` por equipo para que todos los integrantes de cada equipo roten equitativamente sin sesgo de paridad cuando se juega con 2 o 4 equipos.
+- [x] Evaluación formal al cierre de ronda (igualdad de turnos jugados) y desempate en *muerte súbita* (*Sudden Death*).
+- [x] Salto inteligente contabilizado de equipos que ya vaciaron su mano dentro de una ronda activa.
+- [x] Reloj reglamentario unificado de **60 segundos por turno** (con alerta sonora `tick` en los últimos 5s y timeout autoritativo del docente a los 60s con respaldo en 62s).
 
-#### B. Roles y Gestión de Aula:
+#### B. Gestión de Salas Online, Roles y Sala de Espera:
+- [x] **Validación obligatoria de sala creada por el profesor (Fix v12.0):**
+  - Los estudiantes **solo pueden entrar a salas que ya hayan sido abiertas por el docente** (`isRoomHostActive = true`).
+  - Handshake en tiempo real `check_room_exists` → `room_exists_ack` al pulsar *"Entrar a la Sala de Espera"*.
+  - Si la sala no existe aún, se bloquea el acceso en 3.2s mostrando aviso claro en pantalla sin dejar al alumno en una sala fantasma.
+  - Si el profesor cierra o reconfigura el lobby antes de iniciar, se emite `room_closed` devolviendo limpiamente a los alumnos en espera al formulario de ingreso, y `cleanupRealtimeChannel()` libera canales previos sin fugas.
+  - Heartbeat ligero en lobby (cada 4s hasta recibir confirmación de equipo y arranque) + reconexión transparente (`student_reconnected`) si un alumno registrado recarga el navegador en plena partida.
+- [x] **Mini-Tutorial Visual en Sala de Espera (Feature v12.0):**
+  - Integrado en `#modalStudentWaiting` mientras los estudiantes aguardan el inicio de la partida.
+  - Incluye esquema visual de inserción cronológica (`[ + ] Antes` — `1972 Pong` — `[ + ] 👈 Tu Carta` — `1985 NES` — `[ + ] Después`) y las 4 reglas clave, destacando explícitamente el **límite de 60 segundos por turno** y la cesión obligatoria del turno.
 - [x] **Rol Profesor / Tablero General:**
-  - Creación de código de sala personalizado (ej. `AULA-101`).
-  - Sala de espera en vivo (*Lobby*) con listado y conteo de alumnos conectados en tiempo real.
-  - Botón maestro del docente para iniciar partida y sincronizar a todos los clientes.
-  - Tablero de KPIs analíticos en tiempo real:
-    * *KPI 1:* Ronda activa y tamaño dinámico de mano del equipo.
-    * *KPI 2:* Tiempo de respuesta del turno (promedio de partida vs mejor tiempo del equipo).
-    * *KPI 3:* Precisión del equipo activo (% aciertos sobre intentos).
-    * *KPI 4:* Total de cartas históricas reveladas sobre el total del mazo (74 cartas).
-  - Modal para consultar rosters de integrantes de cada equipo en cualquier momento.
-  - Selector de modo (Proyector vs Online).
-- [x] **Rol Estudiante:**
-  - Ingreso con nombre propio y código de sala.
-  - Distribución equitativa y balanceada automática de equipos (Alfa, Beta, Gamma, Delta).
-  - Modal con selección del jugador representante de cada equipo.
-  - Banner dinámico interactivo de turno personal (*"¡Es tu turno de jugar!"* con retroalimentación visual).
-  - Bloqueo de acciones fuera de turno para evitar jugadas desincronizadas.
-  - Botón accesible para regresar a la portada o cambiar de rol en cualquier momento.
+  - Código de sala personalizable, lobby en vivo con conteo y distribución automática de equipos, tablero con 4 KPIs dinámicos, leaderboard y ranking de cartas con más errores.
 
-#### C. Sincronización en Red & Estabilidad:
-- [x] Integración de canal Supabase Broadcast con secuenciación monotónica (`turnSequence`) para eliminar condiciones de carrera.
-- [x] Sincronización unificada de fin de partida (*Game Over* y podio de ganadores).
-- [x] Inspección detallada de cartas históricas con modal de alta resolución al hacer clic.
-- [x] Cache-busting en llamadas de assets (`styles.css?v=11.0`) para evitar problemas de caché en navegadores de alumnos.
+#### C. Audio, Efectos Visuales y Despliegue:
+- [x] Sintetizador retro con `Web Audio API`, partículas de confetti en canvas, popups de racha y overlay CRT.
+- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.0`.
 
 ---
 
-## 🎯 5. ¿Qué Sigue? (Backlog & Roadmap Priorizado)
+## 🎯 5. ¿Qué Sigue? (Backlog & Próximas Mejoras Opcionales)
 
-A continuación se listan las tareas pendientes y mejoras sugeridas organizadas por prioridad:
-
-### 🟡 Prioridad Alta (Próximos pasos inmediatos):
-1. **Efectos de Sonido Retro (SFX):**
-   - Incorporar sonidos 8-bit sintetizados (usando `Web Audio API` para evitar carga de archivos de audio externos):
-     * Sonido de éxito al acertar año.
-     * Sonido de fallo/error al errar posición.
-     * Alerta de tiempo crítico (< 5 segundos).
-     * Fanfarria de victoria y sonido de inicio de ronda.
-   - Botón de silenciar/activar audio (Mute toggle) en el encabezado.
-2. **Reconexión Automática de Alumnos:**
-   - Si un estudiante recarga la página o pierde conexión WiFi temporalmente, restaurar automáticamente su `roomCode`, `playerName` y `userTeamId` desde `sessionStorage`/`localStorage` sin perder su lugar en el equipo.
-3. **Despliegue Continuo (Deploy):**
-   - Publicar el juego en GitHub Pages o Vercel para disponer de una URL pública permanente lista para ser compartida mediante código QR a los estudiantes en el aula.
-
-### 🟢 Prioridad Media (Mejoras funcionales):
-4. **Exportación de Reporte Académico Docente:**
-   - Botón en el panel del profesor para descargar al final de la partida un resumen en CSV o PDF con el rendimiento de cada equipo (aciertos, fallos, tiempo promedio, integrantes).
-5. **Selector de Paquetes / Categorías de Cartas:**
-   - Permitir al profesor filtrar qué cartas usar por épocas (e.g. *Solo Era Dorada Arcade 1970-1989*, *Consolas Modernas 1990-2024* o *Todas las 74*).
-6. **Optimización Táctil en Móviles:**
-   - Ajustar el espaciado y tamaño de las cartas en pantallas pequeñas para facilitar la selección e inserción en la línea de tiempo sin necesidad de scroll horizontal excesivo.
-
-### 🔵 Prioridad Baja (Nice to have):
-7. **PWA (Progressive Web App):**
-   - Añadir `manifest.json` y Service Worker para que en Modo Proyector pueda correr 100% offline si no hay internet en el salón de clases.
+1. **Pruebas en vivo de validación v12.0:**
+   - Verificar en sesión real con 2 equipos la rotación estricta de turnos, el bloqueo de ingreso previo a crear la sala y la legibilidad del mini-tutorial en celulares.
+2. **Exportación de Reporte Académico Docente (CSV):**
+   - Botón opcional en el panel del profesor al finalizar la partida para descargar métricas por equipo e integrantes.
+3. **Filtro de Épocas / Categorías Históricas:**
+   - Opción en la configuración docente para elegir rangos históricos específicos (ej. *Orígenes 1940-1979*, *Era Clásica 1980-1999*, *Era Moderna 2000-2024* o *Mazo Completo*).
+4. **Botón de Silenciar Audio (Mute Toggle):**
+   - Control rápido en la cabecera para activar/silenciar los efectos sintetizados en el proyector o celulares.
 
 ---
 
 ## 🔄 6. Protocolo de Trabajo entre Dos Equipos (Handoff Workflow)
 
-Para evitar colisiones y asegurar una transición fluida al cambiar de computadora:
-
 ### 📤 Al Terminar en el Equipo Actual:
-1. Revisa el estado de git:
+1. Actualizar `PROJECT_STATE.md` reflejando qué se hizo y qué queda pendiente.
+2. Subir cambios a GitHub:
    ```bash
    git status
-   ```
-2. Si realizaste cambios funcionales, actualiza brevemente este archivo `PROJECT_STATE.md` (sección 4 y 5).
-3. Haz commit y push al repositorio remoto:
-   ```bash
    git add .
-   git commit -m "Descripción concisa del avance realizado"
+   git commit -m "Descripción concisa del avance"
    git push origin main
    ```
 
 ### 📥 Al Iniciar en el Segundo Equipo:
-1. Asegúrate de tener los últimos cambios del repositorio:
+1. Descargar últimos cambios:
    ```bash
    git pull origin main
    ```
-2. Consulta este archivo `PROJECT_STATE.md` para refrescar en qué quedó la última sesión.
-3. Levanta el entorno de pruebas local:
-   - Con Python: `python -m http.server 8000` (abrir en navegador: `http://localhost:8000`)
-   - O con la extensión **Live Server** de VS Code / Edge.
-   - O abriendo directamente `index.html` en el navegador (para modo local/proyector).
+2. Leer `PROJECT_STATE.md` para retomar con el contexto exacto.
 
 ---
 
 ## 📝 7. Registro de Últimos Commits Clave
 
-| Commit | Descripción Resumida |
+| Commit / Versión | Descripción Resumida |
 | :--- | :--- |
-| `41139a4` | Corrige condición de carrera en turno multijugador y agrega salto inteligente de equipos sin cartas |
-| `626e476` | Remueve flechas redundantes del track de timeline |
+| `v12.0` *(actual)* | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s en sala de espera |
+| `12030ec` | Docs: Creación inicial de `PROJECT_STATE.md` para trabajo entre dos equipos |
+| `41139a4` | Secuenciación monotónica `turnSequence` y salto de equipos sin cartas |
+| `626e476` | Limpieza de flechas redundantes del track de timeline |
 | `a64e173` | Fix en KPI card 4 para conteo y serialización de cartas totales reveladas |
 | `306e00a` | Sincronización global de fin de juego y validación estricta de turnos ajenos |
 | `48b6726` | Unificación de temporizador en tiempo real entre todos los dispositivos |
-| `ddd3f36` | Sincronización en vivo del roster de integrantes de equipos controlada por el profesor |
-| `a888874` | Sala de espera (*lobby*) en vivo, código de sala y control de inicio por docente |
-| `4683005` | Configuración de credenciales de Supabase Realtime para multijugador |
 
 ---
-*Mantén este documento siempre actualizado cada vez que concluyas una sesión de trabajo.*
+*Recuerda actualizar este archivo en cada commit/push importante.*

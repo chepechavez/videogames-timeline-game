@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=11.0 -->
-  <link rel="stylesheet" href="styles.css?v=11.0">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.0 -->
+  <link rel="stylesheet" href="styles.css?v=12.0">
 </head>
 <body>
 
@@ -432,7 +432,7 @@
   <div class="modal-overlay" id="modalStudentJoin">
     <div class="modal">
       <h2 class="modal__title">🎓 INGRESO DE ESTUDIANTE</h2>
-      <p class="modal__subtitle">Ingresa tus datos para unirte a la sesión:</p>
+      <p class="modal__subtitle">Ingresa tus datos para unirte a una sala creada por tu profesor:</p>
 
       <form onsubmit="handleStudentJoinSubmit(event)">
         <div class="form-group">
@@ -440,14 +440,17 @@
           <input type="text" id="inputStudentNameJoin" class="form-group__input" placeholder="Ej: Alex Mercer" required>
         </div>
 
-        <div class="form-group">
-          <label class="form-group__label" for="inputStudentRoomCode">Código de Sala (Proporcionado por el Profesor):</label>
+        <div class="form-group" style="margin-top: 0.6rem;">
+          <label class="form-group__label" for="inputStudentRoomCode">Código de Sala (Creada por el Profesor):</label>
           <input type="text" id="inputStudentRoomCode" class="form-group__input" style="font-family: var(--font-heading); color: var(--color-neon-cyan); text-transform: uppercase;" placeholder="Ej: AULA-101" value="AULA-101" required>
         </div>
 
+        <!-- MENSAJE DE VERIFICACIÓN / ESTADO DE SALA -->
+        <div id="studentJoinStatusBox" class="join-status-box" role="alert"></div>
+
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-          <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
-          <button type="submit" class="btn-primary">¡ENTRAR A LA SALA DE ESPERA! 🚀</button>
+          <button type="button" class="btn-secondary" id="btnStudentJoinBack" onclick="openRoleSelectionModal()">◀ Volver</button>
+          <button type="submit" class="btn-primary" id="btnStudentJoinSubmit">¡ENTRAR A LA SALA DE ESPERA! 🚀</button>
         </div>
       </form>
     </div>
@@ -455,17 +458,61 @@
 
   <!-- MODAL 3.5: STUDENT WAITING FOR TEACHER TO START MATCH -->
   <div class="modal-overlay" id="modalStudentWaiting">
-    <div class="modal" style="max-width: 500px; text-align: center; border-color: var(--color-neon-yellow);">
-      <div style="font-size: 3rem; margin-bottom: 0.5rem;">⏳</div>
+    <div class="modal" style="max-width: 560px; text-align: center; border-color: var(--color-neon-yellow);">
+      <div style="font-size: 2.2rem; margin-bottom: 0.1rem;">⏳</div>
       <h2 class="modal__title" style="color: var(--color-neon-yellow);" id="waitingStudentHeaderTitle">¡CONECTADO A LA SALA!</h2>
       
-      <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: var(--radius-sm); margin: 1rem 0; text-align: left;">
-        <p style="font-size: 0.95rem; margin-bottom: 0.4rem;"><strong>Estudiante:</strong> <span id="waitingStudentName" style="color: var(--color-neon-cyan);">Alex Mercer</span></p>
-        <p style="font-size: 0.95rem; margin-bottom: 0.4rem;"><strong>Equipo Asignado:</strong> <span id="waitingStudentTeam" style="color: var(--color-neon-pink);">Asignando por el profesor...</span></p>
-        <p style="font-size: 0.95rem;"><strong>Sala:</strong> <span id="waitingStudentRoomCode" style="color: var(--color-neon-yellow);">AULA-101</span></p>
+      <div style="background: rgba(255,255,255,0.04); padding: 0.85rem 1rem; border-radius: var(--radius-sm); text-align: left;">
+        <p style="font-size: 0.92rem; margin-bottom: 0.3rem;"><strong>Estudiante:</strong> <span id="waitingStudentName" style="color: var(--color-neon-cyan);">Alex Mercer</span></p>
+        <p style="font-size: 0.92rem; margin-bottom: 0.3rem;"><strong>Equipo Asignado:</strong> <span id="waitingStudentTeam" style="color: var(--color-neon-pink);">Asignando por el profesor...</span></p>
+        <p style="font-size: 0.92rem;"><strong>Sala:</strong> <span id="waitingStudentRoomCode" style="color: var(--color-neon-yellow);">AULA-101</span></p>
       </div>
 
-      <div class="live-indicator" style="justify-content: center; margin-bottom: 1rem;">
+      <!-- MINI-TUTORIAL INTERACTIVO / VISUAL MIENTRAS ESPERA -->
+      <div class="mini-tutorial" aria-label="Mini tutorial de cómo jugar">
+        <div class="mini-tutorial__header">
+          <span>📖 ¿CÓMO SE JUEGA?</span>
+          <span class="mini-tutorial__timer-tag">⏱️ LÍMITE: 60s / TURNO</span>
+        </div>
+
+        <!-- Esquema Visual de Inserción Cronológica -->
+        <div class="mini-tutorial__diagram" aria-hidden="true">
+          <div class="mini-tutorial__mini-slot">[ + ]<br>Antes</div>
+          <div class="mini-tutorial__mini-card">
+            <span class="mini-tutorial__mini-year">1972</span>
+            <span class="mini-tutorial__mini-label">Pong</span>
+          </div>
+          <div class="mini-tutorial__mini-slot mini-tutorial__mini-slot--target">
+            [ + ] 👈<br>Tu Carta
+          </div>
+          <div class="mini-tutorial__mini-card">
+            <span class="mini-tutorial__mini-year">1985</span>
+            <span class="mini-tutorial__mini-label">NES</span>
+          </div>
+          <div class="mini-tutorial__mini-slot">[ + ]<br>Después</div>
+        </div>
+
+        <ol class="mini-tutorial__steps">
+          <li class="mini-tutorial__step">
+            <span class="mini-tutorial__step-num">1</span>
+            <span><strong>Elige una tarjeta:</strong> En tu turno, toca una carta de la mano de tu equipo (su año está oculto ❓).</span>
+          </li>
+          <li class="mini-tutorial__step">
+            <span class="mini-tutorial__step-num">2</span>
+            <span><strong>Ubícala en la línea:</strong> Toca el espacio <strong style="color: var(--color-neon-green);">[ + ]</strong> (<em>Antes</em>, <em>Entre</em> o <em>Después</em>) donde creas que ocurrió.</span>
+          </li>
+          <li class="mini-tutorial__step">
+            <span class="mini-tutorial__step-num mini-tutorial__step-num--alert">⏱</span>
+            <span><strong>¡Cuidado con el reloj!</strong> Tienes <strong>60 segundos límite</strong> para colocar tu tarjeta; si el tiempo se agota, pierden el turno.</span>
+          </li>
+          <li class="mini-tutorial__step">
+            <span class="mini-tutorial__step-num">3</span>
+            <span><strong>Acierto o castigo:</strong> Si aciertas te quedas con menos cartas; si fallas robas una nueva. <strong>¡Siempre cedes el turno y gana el primer equipo sin cartas!</strong></span>
+          </li>
+        </ol>
+      </div>
+
+      <div class="live-indicator" style="justify-content: center; margin-bottom: 0.4rem;">
         <span class="live-indicator__dot"></span>
         <span style="font-size: 0.9rem; color: var(--color-neon-green);">Esperando a que el profesor inicie la partida...</span>
       </div>
@@ -560,7 +607,7 @@
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=11.0 -->
-  <script src="app.js?v=11.0"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=12.0 -->
+  <script src="app.js?v=12.0"></script>
 </body>
 </html>
