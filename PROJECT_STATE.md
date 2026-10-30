@@ -2,7 +2,7 @@
 
 > **Documento de Referencia Viva (Single Source of Truth)**  
 > Este documento se actualiza en **cada actualización del repositorio** para mantener sincronizado el contexto entre los dos equipos de trabajo.  
-> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.2`)  
+> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.3`)  
 > **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`  
 > **Despliegue activo:** GitHub Pages (`https://chepechavez.github.io/videogames-timeline-game/`)
 
@@ -33,9 +33,9 @@
 
 ```text
 videogames-timeline-game/
-├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, confirmación cierre, resultados), HUD y KPIs (v=12.2)
-├── app.js                   # Motor Timeline, control docente de cierre/revancha, sincronización Supabase Realtime y audio Web Audio API (v=12.2)
-├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive, minitutorial y clasificación final (v=12.2)
+├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, validación equipos vacíos, cierre, resultados), HUD y KPIs (v=12.3)
+├── app.js                   # Motor Timeline, prevención/reducción de equipos vacíos, salto de turno docente, sincronización Supabase y audio (v=12.3)
+├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive, controles docentes y clasificación final (v=12.3)
 ├── Videogames - Timeline.md # Catálogo fuente de los 74 eventos con imágenes oficiales
 └── PROJECT_STATE.md         # (Este archivo) Estado actual del proyecto, historial y backlog
 ```
@@ -54,10 +54,15 @@ videogames-timeline-game/
 - [x] **Cesión estricta de turno (Fix v12.0):** Independientemente de acierto, fallo o tiempo agotado, el turno **siempre** pasa al siguiente equipo. Sincronización completa de `currentRoundTurnCount`, `reserveDeck`, `teamTurnCounts`, `isTieBreakMode` y `tieBreakTeamIndices` mediante `buildGameSyncPayload()` / `applyIncomingGamePayload()`.
 - [x] **Rotación justa de representantes por equipo (Fix v12.0):** Contador individual `teamTurnCounts` por equipo para que todos los integrantes de cada equipo roten equitativamente sin sesgo de paridad cuando se juega con 2 o 4 equipos.
 - [x] Evaluación formal al cierre de ronda (igualdad de turnos jugados) y desempate en *muerte súbita* (*Sudden Death*).
-- [x] Salto inteligente contabilizado de equipos que ya vaciaron su mano dentro de una ronda activa.
+- [x] Salto inteligente contabilizado de equipos que ya vaciaron su mano o que quedaron sin integrantes conectados dentro de una ronda activa.
 - [x] Reloj reglamentario unificado de **60 segundos por turno** (con alerta sonora `tick` en los últimos 5s y timeout autoritativo del docente a los 60s con respaldo en 62s).
 
 #### B. Gestión de Salas Online, Roles y Sala de Espera:
+- [x] **Prevención de Salas/Equipos Vacíos y Salto de Turnos Sin Jugador (Fix & Feature v12.3):**
+  - **Mínimo 2 estudiantes para iniciar:** En modo **Multijugador Online** se exige un mínimo de 2 estudiantes conectados para iniciar partida (en revancha, si quedan menos de 2 estudiantes conectados, el profesor puede reabrir la Sala de Espera con `return_to_lobby`). En modo **Proyector**, si el docente escribe nombres en la lista opcional, también se exige mínimo 2 nombres (si deja la lista vacía, se mantienen todos los equipos físicos configurados).
+  - **Confirmación interactiva ante equipos vacíos (`#modalTeamValidation`):** Cuando hay menos estudiantes que equipos configurados (ej. 4 equipos y 3 estudiantes, 4 equipos y 2 estudiantes, o 3 equipos y 2 estudiantes — tanto en Lobby Online, Revancha como en Proyector con lista), el juego consulta al docente si desea **⏳ Esperar Estudiantes** (permaneciendo en el lobby/configuración) o **🚀 Iniciar con Reducción** (compactando automáticamente la partida solo a los equipos con integrantes y ajustando sus cartas iniciales reglamentarias: 3 equipos = 5 cartas, 2 equipos = 6 cartas).
+  - **Omisión automática en 0s a mitad de partida:** Si todos los integrantes de un equipo abandonan la sala (`student_left`) durante una partida activa, sus turnos se omiten automáticamente en 0 segundos sin esperar el reloj de 60s (pasando el turno de inmediato si estaba activo; si aún queda otro integrante en ese equipo, se refresca el reloj para el compañero que asume el tiro; y si todos los alumnos abandonan la sala, la sesión finaliza limpiamente). Los equipos vacíos se identifican con badge `Sin integrantes` / `Turno omitido` y nunca superan ni empatan en clasificación final a equipos con integrantes activos.
+  - **Botón docente `⏭️ Saltar Turno`:** Disponible en la barra de modo y en el Dashboard Profesor (online y pizarra) para saltar en 1 clic el turno actual —rotando además al siguiente representante del equipo para la próxima ronda— si un estudiante cierra el navegador o se ausenta sin salir formalmente.
 - [x] **Validación obligatoria de sala creada por el profesor (Fix v12.0):**
   - Los estudiantes **solo pueden entrar a salas que ya hayan sido abiertas por el docente** (`isRoomHostActive = true`).
   - Handshake en tiempo real `check_room_exists` → `room_exists_ack` al pulsar *"Entrar a la Sala de Espera"*.
@@ -76,14 +81,14 @@ videogames-timeline-game/
 
 #### C. Audio, Efectos Visuales y Despliegue:
 - [x] Sintetizador retro con `Web Audio API`, partículas de confetti en canvas, popups de racha y overlay CRT.
-- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.2`.
+- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.3`.
 
 ---
 
 ## 🎯 5. ¿Qué Sigue? (Backlog & Próximas Mejoras Opcionales)
 
-1. **Pruebas en vivo de validación v12.2:**
-   - Verificar en sesión real el cierre manual de partida docente (con confirmación, resultados en celulares y revancha en la misma sala), la rotación estricta de turnos, la conservación de tarjeta al fallar, el bloqueo de salas no creadas y el mini-tutorial.
+1. **Pruebas en vivo de validación v12.3:**
+   - Verificar en sesión real el flujo de confirmación/reducción ante equipos vacíos (4→3, 4→2, 3→2), el bloqueo con menos de 2 estudiantes, el salto automático en 0s si un equipo queda vacío en plena partida y el botón docente `⏭️ Saltar Turno`.
 2. **Exportación de Reporte Académico Docente (CSV):**
    - Botón opcional en el panel del profesor al finalizar la partida para descargar métricas por equipo e integrantes.
 3. **Filtro de Épocas / Categorías Históricas:**
@@ -118,7 +123,8 @@ videogames-timeline-game/
 
 | Commit / Versión | Descripción Resumida |
 | :--- | :--- |
-| `v12.2` *(actual)* | Añade botón docente `🛑 Finalizar Partida` (online y pizarra) con modal de confirmación, tabla de clasificación final sincronizada y permanencia por defecto en la misma sala con opción de revancha inmediata o salir a portada |
+| `v12.3` *(actual)* | Corrige espera en equipos/salas vacías: exige mínimo 2 estudiantes, añade confirmación docente para esperar o reducir automáticamente equipos vacíos al iniciar (4→3, 4→2, 3→2 en online, revancha y proyector con lista), omite en 0s equipos vacíos a mitad de partida y añade botón docente `⏭️ Saltar Turno` |
+| `c31bbcc` (`v12.2`) | Añade botón docente `🛑 Finalizar Partida` (online y pizarra) con modal de confirmación, tabla de clasificación final sincronizada y permanencia por defecto en la misma sala con opción de revancha inmediata o salir a portada |
 | `5d43cb7` (`v12.1`) | Ajusta regla de fallo para conservar la tarjeta en la mano del equipo (permitiendo reintentar sin revelar su año) y actualiza el mini-tutorial |
 | `7115b0c` (`v12.0`) | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s |
 | `12030ec` | Docs: Creación inicial de `PROJECT_STATE.md` para trabajo entre dos equipos |

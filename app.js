@@ -17,6 +17,7 @@ let roomJoinVerifyTimeout = null;
 let roomJoinRetryTimeout = null;
 let isVerifyingRoomJoin = false;
 let studentHasReceivedTeamAck = false;
+let pendingTeamValidationConfirmCallback = null;
 
 const WEBHOOK_URL = "";
 
@@ -109,6 +110,7 @@ let gameState = {
   myClientId: Math.random().toString(36).substring(2, 9),
   userRole: "teacher", // "teacher" or "student"
   gameMode: "projector", // "projector" or "online"
+  configuredNumTeams: 4,
   numTeams: 4,
   initialCardsPerTeam: 4,
   
@@ -170,6 +172,41 @@ function trackCardSeen(cardId) {
   if (!gameState.uniqueCardsSeenIds.includes(cardId)) {
     gameState.uniqueCardsSeenIds.push(cardId);
   }
+}
+
+function getCardsPerTeamForCount(teamCount) {
+  if (teamCount <= 2) return 6;
+  if (teamCount === 3) return 5;
+  return 4;
+}
+
+function usesAssignedRoster() {
+  return gameState.gameMode === 'online' || Boolean(gameState.joinedStudents && gameState.joinedStudents.length > 0);
+}
+
+function getTeamMemberCount(teamIndex) {
+  if (!gameState.joinedStudents) return 0;
+  return gameState.joinedStudents.filter(s => s.teamId === teamIndex).length;
+}
+
+function isTeamEligibleToPlay(teamIndex) {
+  const hand = gameState.teamHands[teamIndex] || [];
+  if (hand.length === 0) return false;
+  if (usesAssignedRoster()) {
+    return getTeamMemberCount(teamIndex) > 0;
+  }
+  return true;
+}
+
+function analyzeTeamOccupancy(totalTeams, rosterList) {
+  const occupiedTeamIndices = [];
+  const emptyTeamIndices = [];
+  for (let t = 0; t < totalTeams; t++) {
+    const count = (rosterList || []).filter(s => s.teamId === t).length;
+    if (count > 0) occupiedTeamIndices.push(t);
+    else emptyTeamIndices.push(t);
+  }
+  return { occupiedTeamIndices, emptyTeamIndices };
 }
 
 // AUDIO SYNTHESIZER
@@ -336,6 +373,11 @@ function initSupabaseRealtime(onSubscribedCallback = null) {
         .on('broadcast', { event: 'roster_sync' }, payload => {
           if (payload.payload) {
             handleIncomingRosterSync(payload.payload);
+          }
+        })
+        .on('broadcast', { event: 'return_to_lobby' }, payload => {
+          if (payload.payload) {
+            handleIncomingReturnToLobby(payload.payload);
           }
         })
         .on('broadcast', { event: 'start_game' }, payload => {
@@ -598,6 +640,12 @@ function handleIncomingStudentLeft(data) {
   if (gameState.userRole !== 'teacher' || !gameState.isRoomHostActive) return;
   if (!data) return;
 
+  const leavingStudent = gameState.joinedStudents.find(s => {
+    if (data.clientId && s.clientId) return s.clientId === data.clientId;
+    if (data.name) return s.name.toLowerCase() === data.name.toLowerCase();
+    return false;
+  });
+
   const prevLen = gameState.joinedStudents.length;
   gameState.joinedStudents = gameState.joinedStudents.filter(s => {
     if (data.clientId && s.clientId) return s.clientId !== data.clientId;
@@ -618,6 +666,55 @@ function handleIncomingStudentLeft(data) {
   broadcastRosterSync();
 
   if (gameState.isGameStarted && !gameState.isGameOver) {
+    const departedTeamId = leavingStudent ? leavingStudent.teamId : null;
+    const departedName = leavingStudent ? leavingStudent.name : (data.name || "Un estudiante");
+
+    // Si todos los estudiantes abandonaron la sala en plena partida, finalizar limpiamente sin esperar reloj
+    if (gameState.joinedStudents.length === 0) {
+      addChatMessage("🤖 Sistema", `🚪 ${departedName} salió de la sala. No quedan estudiantes conectados; finalizando la partida automáticamente.`);
+      finalizeMatchNoActiveStudents();
+      return;
+    }
+
+    if (departedTeamId !== null && ALL_TEAMS[departedTeamId]) {
+      const remainingInTeam = getTeamMemberCount(departedTeamId);
+      if (remainingInTeam === 0) {
+        addChatMessage(
+          "🤖 Sistema",
+          `🚪 ${departedName} salió de la sala. ⚠️ ${ALL_TEAMS[departedTeamId].name} quedó sin integrantes conectados; sus turnos se omitirán automáticamente.`
+        );
+
+        // Si justo era el turno del equipo que quedó vacío, pasar el turno de inmediato en 0s
+        if (gameState.currentTurnTeamIndex === departedTeamId && !gameState.isMoveProcessing) {
+          gameState.isMoveProcessing = true;
+          if (gameState.turnTimerInterval) {
+            clearInterval(gameState.turnTimerInterval);
+            gameState.turnTimerInterval = null;
+          }
+          gameState.selectedHandCardId = null;
+          gameState.currentRoundTurnCount++;
+          advanceTurnOrEvaluateRound();
+          return;
+        }
+      } else {
+        // El equipo aún tiene integrantes; si era su turno activo, refrescar reloj para el compañero que asume el tiro
+        if (gameState.currentTurnTeamIndex === departedTeamId && !gameState.isMoveProcessing) {
+          gameState.turnStartTimeStamp = Date.now();
+          incrementTurnSequence();
+          updateHud();
+          startTurnTimer();
+          addChatMessage(
+            "🤖 Sistema",
+            `🚪 ${departedName} salió de la sala. El turno activo de ${ALL_TEAMS[departedTeamId].name} pasa a ${getActiveRepresentativeName()}.`
+          );
+          broadcastGameState();
+          return;
+        } else {
+          addChatMessage("🤖 Sistema", `🚪 ${departedName} salió de la sala.`);
+        }
+      }
+    }
+
     updateHud();
   }
 
@@ -665,9 +762,39 @@ function handleIncomingRosterSync(data) {
     if (data.numTeams) gameState.numTeams = data.numTeams;
     syncMyAssignedTeamFromRoster();
     if (gameState.isGameStarted) {
+      applyGameModeUI();
       updateHud();
+      renderTeacherDashboard();
     }
   }
+}
+
+function handleIncomingReturnToLobby(data) {
+  if (gameState.userRole !== 'student') return;
+  if (data && data.roomCode && data.roomCode !== gameState.roomCode) return;
+
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
+
+  gameState.isGameStarted = false;
+  gameState.isGameOver = false;
+  gameState.endedByTeacher = false;
+  gameState.isMoveProcessing = false;
+  gameState.selectedHandCardId = null;
+
+  if (data && data.numTeams) gameState.numTeams = data.numTeams;
+  if (data && data.joinedStudents) gameState.joinedStudents = data.joinedStudents;
+  syncMyAssignedTeamFromRoster();
+
+  closeAllModals();
+  applyGameModeUI();
+  const waitingNameEl = document.getElementById("waitingStudentName");
+  if (waitingNameEl) waitingNameEl.textContent = gameState.playerName;
+  const waitingRoomEl = document.getElementById("waitingStudentRoomCode");
+  if (waitingRoomEl) waitingRoomEl.textContent = gameState.roomCode;
+  document.getElementById("modalStudentWaiting").classList.add("modal-overlay--active");
 }
 
 function buildGameSyncPayload() {
@@ -709,6 +836,7 @@ function applyIncomingGamePayload(data, isInitialStart = false) {
   if (data.teamStreaks) gameState.teamStreaks = data.teamStreaks;
   if (data.teamTurnCounts) gameState.teamTurnCounts = data.teamTurnCounts;
   if (data.cardErrorTracker) gameState.cardErrorTracker = data.cardErrorTracker;
+  const previousTurnTeam = gameState.currentTurnTeamIndex;
   if (data.currentTurnTeamIndex !== undefined) gameState.currentTurnTeamIndex = data.currentTurnTeamIndex;
   if (data.totalTurnsPlayed !== undefined) gameState.totalTurnsPlayed = data.totalTurnsPlayed;
   if (data.totalRoundsCompleted !== undefined) gameState.totalRoundsCompleted = data.totalRoundsCompleted;
@@ -725,14 +853,97 @@ function applyIncomingGamePayload(data, isInitialStart = false) {
   if (data.tiedWinnerIndices) gameState.tiedWinnerIndices = data.tiedWinnerIndices;
   if (data.turnSequence !== undefined) gameState.turnSequence = data.turnSequence;
 
-  if (isInitialStart) {
+  if (isInitialStart || previousTurnTeam !== gameState.currentTurnTeamIndex) {
     gameState.selectedHandCardId = null;
   }
 
   syncMyAssignedTeamFromRoster();
 }
 
-function teacherStartMatchForAllStudents() {
+function openTeamValidationModal({
+  icon = "⚠️",
+  title = "HAY EQUIPOS SIN ESTUDIANTES",
+  message = "",
+  summaryHtml = "",
+  waitLabel = "⏳ Esperar Estudiantes",
+  confirmLabel = null,
+  onConfirm = null
+}) {
+  const modal = document.getElementById("modalTeamValidation");
+  if (!modal) return;
+
+  const iconEl = document.getElementById("teamValidationIcon");
+  const titleEl = document.getElementById("teamValidationTitle");
+  const msgEl = document.getElementById("teamValidationMessage");
+  const summaryEl = document.getElementById("teamValidationSummary");
+  const waitBtn = document.getElementById("teamValidationWaitBtn");
+  const confirmBtn = document.getElementById("teamValidationConfirmBtn");
+
+  if (iconEl) iconEl.textContent = icon;
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = message;
+
+  if (summaryEl) {
+    if (summaryHtml) {
+      summaryEl.innerHTML = summaryHtml;
+      summaryEl.style.display = "block";
+    } else {
+      summaryEl.innerHTML = "";
+      summaryEl.style.display = "none";
+    }
+  }
+
+  if (waitBtn) waitBtn.textContent = waitLabel;
+
+  pendingTeamValidationConfirmCallback = typeof onConfirm === "function" ? onConfirm : null;
+  if (confirmBtn) {
+    if (confirmLabel && pendingTeamValidationConfirmCallback) {
+      confirmBtn.textContent = confirmLabel;
+      confirmBtn.style.display = "inline-block";
+    } else {
+      confirmBtn.style.display = "none";
+    }
+  }
+
+  modal.classList.add("modal-overlay--active");
+}
+
+function closeTeamValidationModal() {
+  pendingTeamValidationConfirmCallback = null;
+  const modal = document.getElementById("modalTeamValidation");
+  if (modal) modal.classList.remove("modal-overlay--active");
+}
+
+function confirmTeamValidationAction() {
+  const callback = pendingTeamValidationConfirmCallback;
+  closeTeamValidationModal();
+  if (typeof callback === "function") {
+    callback();
+  }
+}
+
+function compactOnlineTeamsToOccupied() {
+  const { occupiedTeamIndices } = analyzeTeamOccupancy(gameState.numTeams, gameState.joinedStudents);
+  if (occupiedTeamIndices.length >= 2) {
+    const remap = {};
+    occupiedTeamIndices.forEach((oldTeamId, newIdx) => {
+      remap[oldTeamId] = newIdx;
+    });
+    gameState.joinedStudents.forEach((s, idx) => {
+      s.teamId = remap[s.teamId] !== undefined ? remap[s.teamId] : (idx % occupiedTeamIndices.length);
+    });
+    gameState.numTeams = occupiedTeamIndices.length;
+  } else {
+    // Si 2+ estudiantes quedaron agrupados en un mismo equipo tras salidas post-partida, dividirlos en 2 equipos activos
+    gameState.numTeams = 2;
+    gameState.joinedStudents.forEach((s, idx) => {
+      s.teamId = idx % 2;
+    });
+  }
+  gameState.initialCardsPerTeam = getCardsPerTeamForCount(gameState.numTeams);
+}
+
+function executeOnlineMatchStart() {
   gameState.isGameStarted = true;
   gameState.isGameOver = false;
   gameState.endedByTeacher = false;
@@ -740,6 +951,7 @@ function teacherStartMatchForAllStudents() {
   gameState.isTie = false;
   gameState.tiedWinnerIndices = [];
   switchView('student');
+  applyGameModeUI();
   initNewGame(false);
   closeAllModals();
 
@@ -751,6 +963,113 @@ function teacherStartMatchForAllStudents() {
       payload: buildGameSyncPayload()
     });
   }
+}
+
+function confirmStartOnlineWithDynamicTeams() {
+  if (gameState.joinedStudents.length < 2) {
+    // Por si algún estudiante salió mientras el modal estaba abierto
+    teacherStartMatchForAllStudents();
+    return;
+  }
+  const { emptyTeamIndices } = analyzeTeamOccupancy(gameState.numTeams, gameState.joinedStudents);
+  if (emptyTeamIndices.length > 0) {
+    compactOnlineTeamsToOccupied();
+  }
+  executeOnlineMatchStart();
+}
+
+function teacherReopenOnlineWaitingLobby() {
+  if (gameState.userRole !== 'teacher' || gameState.gameMode !== 'online') return;
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
+
+  gameState.numTeams = gameState.configuredNumTeams || 4;
+  gameState.initialCardsPerTeam = getCardsPerTeamForCount(gameState.numTeams);
+  gameState.isGameStarted = false;
+  gameState.isGameOver = false;
+  gameState.endedByTeacher = false;
+  gameState.joinedStudents.forEach((s, idx) => {
+    s.teamId = idx % gameState.numTeams;
+  });
+
+  closeAllModals();
+  applyGameModeUI();
+  document.getElementById("lobbyRoomCodeTitle").textContent = `SALA: ${gameState.roomCode}`;
+  document.getElementById("modalOnlineLobby").classList.add("modal-overlay--active");
+  renderTeacherOnlineLobbyGrid();
+  renderTeacherDashboard();
+  broadcastRosterSync();
+
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'return_to_lobby',
+      senderId: gameState.myClientId,
+      payload: {
+        roomCode: gameState.roomCode,
+        numTeams: gameState.numTeams,
+        joinedStudents: gameState.joinedStudents
+      }
+    });
+  }
+}
+
+function teacherStartMatchForAllStudents(isRematch = false) {
+  const connectedCount = gameState.joinedStudents.length;
+
+  // 1. Validar mínimo 2 estudiantes conectados para partidas online
+  if (connectedCount < 2) {
+    playSynthSound('error');
+    if (isRematch) {
+      openTeamValidationModal({
+        icon: "⏳",
+        title: "SE REQUIEREN MÍNIMO 2 ESTUDIANTES",
+        message: connectedCount === 0
+          ? `Ya no quedan estudiantes conectados en la sala "${gameState.roomCode}". Puedes abrir la sala de espera para que ingresen nuevos jugadores.`
+          : `Actualmente solo queda 1 estudiante conectado (${gameState.joinedStudents[0].name}). Se necesitan mínimo 2 estudiantes para iniciar una nueva partida.`,
+        summaryHtml: `• <strong>Sala activa:</strong> ${gameState.roomCode}<br>• <strong>Conectados ahora:</strong> ${connectedCount} de mínimo 2 requeridos.`,
+        waitLabel: "◀ Volver a Resultados",
+        confirmLabel: "👥 Abrir Sala de Espera",
+        onConfirm: () => teacherReopenOnlineWaitingLobby()
+      });
+    } else {
+      openTeamValidationModal({
+        icon: "⏳",
+        title: connectedCount === 0 ? "AÚN NO HAY ESTUDIANTES CONECTADOS" : "SE REQUIEREN MÍNIMO 2 ESTUDIANTES",
+        message: connectedCount === 0
+          ? `Todavía no ha entrado ningún estudiante a la sala "${gameState.roomCode}". Espera a que se conecten al menos 2 estudiantes para iniciar.`
+          : `Actualmente solo hay 1 estudiante conectado (${gameState.joinedStudents[0].name}). Espera a que ingrese al menos otro estudiante para formar equipos.`,
+        summaryHtml: `• <strong>Sala en espera:</strong> ${gameState.roomCode}<br>• <strong>Conectados ahora:</strong> ${connectedCount} de mínimo 2 requeridos.`,
+        waitLabel: "⏳ Seguir Esperando en el Lobby",
+        confirmLabel: null
+      });
+    }
+    return;
+  }
+
+  // 2. Verificar si existen equipos vacíos (ej. 4 equipos creados y 3 estudiantes, o 3 equipos y 2 estudiantes)
+  const { occupiedTeamIndices, emptyTeamIndices } = analyzeTeamOccupancy(gameState.numTeams, gameState.joinedStudents);
+  if (emptyTeamIndices.length > 0) {
+    const targetTeams = occupiedTeamIndices.length >= 2 ? occupiedTeamIndices.length : 2;
+    const targetCards = getCardsPerTeamForCount(targetTeams);
+    const emptyNames = emptyTeamIndices.map(idx => `${ALL_TEAMS[idx].icon} ${ALL_TEAMS[idx].name}`).join(", ");
+
+    openTeamValidationModal({
+      icon: "⚠️",
+      title: "HAY EQUIPOS SIN ESTUDIANTES",
+      message: `Hay ${gameState.numTeams} equipos configurados, pero solo ${connectedCount} estudiantes conectados. ¿Deseas esperar a quienes faltan o iniciar ahora reduciendo automáticamente los equipos activos para evitar turnos vacíos?`,
+      summaryHtml: `• <strong>${emptyTeamIndices.length === 1 ? "Equipo vacío detectado" : "Equipos vacíos detectados"}:</strong> ${emptyNames}<br>• <strong>Si inicias ahora:</strong> Se reducirá automáticamente a <strong>${targetTeams} equipos activos</strong> (${targetCards} cartas por equipo).`,
+      waitLabel: "⏳ Esperar Estudiantes",
+      confirmLabel: `🚀 Iniciar con ${targetTeams} Equipos`,
+      onConfirm: () => confirmStartOnlineWithDynamicTeams()
+    });
+    return;
+  }
+
+  // 3. Todos los equipos tienen integrantes: iniciar de inmediato
+  executeOnlineMatchStart();
 }
 
 function handleIncomingStartGame(data) {
@@ -837,6 +1156,7 @@ function syncIncomingGameState(data) {
   }
 
   gameState.isMoveProcessing = false;
+  applyGameModeUI();
   updateHud();
   renderTimelineTable();
   renderTeamHand();
@@ -916,6 +1236,7 @@ function openRoleSelectionModal() {
 }
 
 function closeAllModals() {
+  pendingTeamValidationConfirmCallback = null;
   document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("modal-overlay--active"));
 }
 
@@ -949,38 +1270,88 @@ function toggleTeacherModeFields() {
   }
 }
 
-function handleTeacherSubmitConfig(e) {
-  e.preventDefault();
+function launchProjectorMatch(effectiveTeams, names) {
   gameState.userRole = "teacher";
   gameState.playerName = "";
-  const mode = document.getElementById("selectGameModeSetting").value;
-  const numTeams = parseInt(document.getElementById("selectNumTeamsSetting").value, 10);
-  
-  gameState.gameMode = mode;
-  gameState.numTeams = numTeams;
-  
-  if (numTeams === 2) gameState.initialCardsPerTeam = 6;
-  else if (numTeams === 3) gameState.initialCardsPerTeam = 5;
-  else gameState.initialCardsPerTeam = 4;
-
+  gameState.gameMode = "projector";
+  gameState.isRoomHostActive = false;
+  gameState.numTeams = effectiveTeams;
+  gameState.initialCardsPerTeam = getCardsPerTeamForCount(effectiveTeams);
   gameState.joinedStudents = [];
   cleanupRealtimeChannel();
 
+  if (names && names.length > 0) {
+    names.forEach((name, idx) => {
+      const teamId = idx % effectiveTeams;
+      gameState.joinedStudents.push({ name, teamId });
+    });
+  }
+
+  closeAllModals();
+  switchView('student');
+  applyGameModeUI();
+  gameState.isGameStarted = true;
+  initNewGame(false);
+}
+
+function handleTeacherSubmitConfig(e) {
+  e.preventDefault();
+  const mode = document.getElementById("selectGameModeSetting").value;
+  const numTeams = parseInt(document.getElementById("selectNumTeamsSetting").value, 10);
+
+  gameState.configuredNumTeams = numTeams;
+
   if (mode === 'projector') {
-    gameState.isRoomHostActive = false;
     const rawList = document.getElementById("textareaStudentList").value.trim();
-    if (rawList) {
-      const names = rawList.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length > 0);
-      names.forEach((name, idx) => {
-        const teamId = idx % numTeams;
-        gameState.joinedStudents.push({ name, teamId });
+    const names = rawList
+      ? rawList.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length > 0)
+      : [];
+
+    // Si el profesor escribió nombres pero ingresó solo 1 estudiante, pedir mínimo 2 o dejar vacío
+    if (names.length === 1) {
+      playSynthSound('error');
+      openTeamValidationModal({
+        icon: "⚠️",
+        title: "SE REQUIEREN MÍNIMO 2 ESTUDIANTES",
+        message: `Ingresaste solo 1 estudiante (${names[0]}) en la lista. Agrega al menos 2 nombres para formar equipos o deja la lista vacía para jugar por grupos libres en el salón.`,
+        summaryHtml: `• <strong>Estudiantes en lista:</strong> 1 (mínimo requerido: 2 si usas lista de nombres).`,
+        waitLabel: "✏️ Editar Lista de Estudiantes",
+        confirmLabel: null
       });
+      return;
     }
-    closeAllModals();
-    applyGameModeUI();
-    gameState.isGameStarted = true;
-    initNewGame();
+
+    // Si ingresó menos estudiantes que equipos configurados (ej. 4 equipos y 3 estudiantes, o 3 equipos y 2 estudiantes)
+    if (names.length >= 2 && names.length < numTeams) {
+      const targetTeams = names.length;
+      const targetCards = getCardsPerTeamForCount(targetTeams);
+      const emptyTeamNames = [];
+      for (let t = targetTeams; t < numTeams; t++) {
+        emptyTeamNames.push(`${ALL_TEAMS[t].icon} ${ALL_TEAMS[t].name}`);
+      }
+
+      openTeamValidationModal({
+        icon: "⚠️",
+        title: "HAY EQUIPOS SIN ESTUDIANTES",
+        message: `Seleccionaste ${numTeams} equipos, pero ingresaste solo ${names.length} estudiantes en la lista. ¿Deseas volver para agregar quienes faltan o iniciar ahora reduciendo automáticamente los equipos activos?`,
+        summaryHtml: `• <strong>${emptyTeamNames.length === 1 ? "Equipo vacío detectado" : "Equipos vacíos detectados"}:</strong> ${emptyTeamNames.join(", ")}<br>• <strong>Si inicias ahora:</strong> Se reducirá automáticamente a <strong>${targetTeams} equipos activos</strong> (${targetCards} cartas por equipo).`,
+        waitLabel: "✏️ Agregar Estudiantes",
+        confirmLabel: `🚀 Iniciar con ${targetTeams} Equipos`,
+        onConfirm: () => launchProjectorMatch(targetTeams, names)
+      });
+      return;
+    }
+
+    launchProjectorMatch(numTeams, names);
   } else {
+    gameState.userRole = "teacher";
+    gameState.playerName = "";
+    gameState.gameMode = "online";
+    gameState.numTeams = numTeams;
+    gameState.initialCardsPerTeam = getCardsPerTeamForCount(numTeams);
+    gameState.joinedStudents = [];
+    cleanupRealtimeChannel();
+
     const customCode = document.getElementById("inputTeacherRoomCode").value.trim().toUpperCase();
     gameState.roomCode = customCode || "AULA-101";
     gameState.isRoomHostActive = true;
@@ -1152,17 +1523,23 @@ function applyGameModeUI() {
 }
 
 function updatePostGameAndTeacherButtons() {
-  const canTeacherEndMatch = Boolean(
+  const canTeacherControlMatch = Boolean(
     gameState.userRole === 'teacher' &&
     gameState.isGameStarted &&
     !gameState.isGameOver
   );
 
+  const btnSkipBar = document.getElementById("btnTeacherSkipTurnBar");
+  if (btnSkipBar) btnSkipBar.style.display = canTeacherControlMatch ? "inline-flex" : "none";
+
+  const btnSkipDash = document.getElementById("btnTeacherDashboardSkipTurn");
+  if (btnSkipDash) btnSkipDash.style.display = canTeacherControlMatch ? "inline-flex" : "none";
+
   const btnEndBar = document.getElementById("btnTeacherEndMatchBar");
-  if (btnEndBar) btnEndBar.style.display = canTeacherEndMatch ? "inline-flex" : "none";
+  if (btnEndBar) btnEndBar.style.display = canTeacherControlMatch ? "inline-flex" : "none";
 
   const btnEndDash = document.getElementById("btnTeacherDashboardEndMatch");
-  if (btnEndDash) btnEndDash.style.display = canTeacherEndMatch ? "inline-flex" : "none";
+  if (btnEndDash) btnEndDash.style.display = canTeacherControlMatch ? "inline-flex" : "none";
 
   const showReopenResults = Boolean(gameState.isGameStarted && gameState.isGameOver);
   const btnReopenBar = document.getElementById("btnReopenResultsBar");
@@ -1176,13 +1553,19 @@ function openViewTeamsModal() {
   for (let t = 0; t < gameState.numTeams; t++) {
     const team = ALL_TEAMS[t];
     const members = gameState.joinedStudents.filter(s => s.teamId === t);
+    const isVacatedMidGame = gameState.isGameStarted && usesAssignedRoster() && members.length === 0;
 
     const box = document.createElement("div");
     box.className = "lobby-team-box";
     box.innerHTML = `
-      <div class="lobby-team-box__title" style="color: ${team.color};">${team.icon} ${team.name} (${members.length} integrantes)</div>
+      <div class="lobby-team-box__title" style="color: ${team.color};">
+        ${team.icon} ${team.name} (${members.length} integrantes)
+        ${isVacatedMidGame ? `<span class="team-empty-badge">Turno omitido</span>` : ""}
+      </div>
       <ul class="lobby-team-box__list">
-        ${members.length > 0 ? members.map(m => `<li>👤 ${m.name}</li>`).join("") : `<li style="color: var(--color-text-muted);">Sin asignaciones registradas</li>`}
+        ${members.length > 0
+          ? members.map(m => `<li>👤 ${m.name}</li>`).join("")
+          : `<li style="color: var(--color-text-muted);">${isVacatedMidGame ? "⚠️ Sin integrantes conectados (se omite en los turnos)" : "Sin asignaciones registradas"}</li>`}
       </ul>
     `;
     container.appendChild(box);
@@ -1287,6 +1670,15 @@ function initNewGame(shouldBroadcast = true) {
         trackCardSeen(card.id);
       }
     }
+  }
+
+  let firstEligible = 0;
+  while (firstEligible < gameState.numTeams && !isTeamEligibleToPlay(firstEligible)) {
+    firstEligible++;
+  }
+  if (firstEligible < gameState.numTeams) {
+    gameState.currentTurnTeamIndex = firstEligible;
+    gameState.currentRoundTurnCount = firstEligible;
   }
 
   updateHud();
@@ -1468,6 +1860,31 @@ function handleTurnTimeout() {
   gameState.teamTurnCounts[timedOutTeam] = (gameState.teamTurnCounts[timedOutTeam] || 0) + 1;
   gameState.totalTurnsPlayed++;
   gameState.currentRoundTurnCount++;
+  advanceTurnOrEvaluateRound();
+}
+
+function teacherSkipCurrentTurn() {
+  if (gameState.userRole !== 'teacher' || !gameState.isGameStarted || gameState.isGameOver || gameState.isMoveProcessing) return;
+  gameState.isMoveProcessing = true;
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
+  playSynthSound('tick');
+
+  const skippedTeam = gameState.currentTurnTeamIndex;
+  const skippedRep = usesAssignedRoster() ? getActiveRepresentativeName() : null;
+  gameState.selectedHandCardId = null;
+  gameState.teamStreaks[skippedTeam] = 0;
+  gameState.teamTurnCounts[skippedTeam] = (gameState.teamTurnCounts[skippedTeam] || 0) + 1;
+  gameState.totalTurnsPlayed++;
+  gameState.currentRoundTurnCount++;
+
+  const skipNotice = skippedRep
+    ? `⏭️ El profesor saltó el turno actual de ${ALL_TEAMS[skippedTeam].name} (${skippedRep}).`
+    : `⏭️ El profesor saltó el turno actual de ${ALL_TEAMS[skippedTeam].name}.`;
+  addChatMessage("🤖 Sistema", skipNotice);
+
   advanceTurnOrEvaluateRound();
 }
 
@@ -1658,6 +2075,32 @@ function triggerStreakOverlay(streakCount) {
   }, 1800);
 }
 
+function finalizeMatchNoActiveStudents() {
+  if (gameState.isGameOver) return;
+  const outcome = computeCurrentStandingsOutcome();
+  gameState.isGameOver = true;
+  gameState.endedByTeacher = true;
+  gameState.winnerTeamIndex = outcome.winnerTeamIndex;
+  gameState.isTie = outcome.isTie;
+  gameState.tiedWinnerIndices = outcome.tiedWinnerIndices;
+  gameState.isMoveProcessing = false;
+  gameState.selectedHandCardId = null;
+  incrementTurnSequence();
+
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
+
+  updateHud();
+  renderTimelineTable();
+  renderTeamHand();
+  renderTeacherDashboard();
+  showGameOverModal(outcome.winnerTeamIndex, outcome.isTie, outcome.tiedWinnerIndices, false);
+  sendWebhookTelemetry();
+  broadcastGameState();
+}
+
 function advanceTurnOrEvaluateRound() {
   const activeTeamsList = (gameState.isTieBreakMode && gameState.tieBreakTeamIndices.length > 0)
     ? gameState.tieBreakTeamIndices
@@ -1667,29 +2110,18 @@ function advanceTurnOrEvaluateRound() {
   gameState.turnStartTimeStamp = Date.now();
   incrementTurnSequence();
 
-  if (gameState.currentRoundTurnCount < activeTeamsList.length) {
-    const currentPosInList = activeTeamsList.indexOf(previousTeamIndex);
-    const safePos = currentPosInList >= 0 ? currentPosInList : 0;
-
-    let nextPosInList = (safePos + 1) % activeTeamsList.length;
-    let candidateTeam = activeTeamsList[nextPosInList];
-    let checkedCount = 0;
-
-    // Si algún equipo intermedio ya vació su mano en esta ronda, contabilizar su salto
-    while (
-      gameState.teamHands[candidateTeam].length === 0 &&
-      checkedCount < activeTeamsList.length &&
-      gameState.currentRoundTurnCount < activeTeamsList.length
-    ) {
-      gameState.currentRoundTurnCount++;
-      nextPosInList = (nextPosInList + 1) % activeTeamsList.length;
-      candidateTeam = activeTeamsList[nextPosInList];
-      checkedCount++;
+  // Avanzar estrictamente hacia adelante dentro de la ronda actual omitiendo en 0s equipos sin cartas o sin integrantes
+  const currentPosInList = activeTeamsList.indexOf(previousTeamIndex);
+  if (currentPosInList >= 0) {
+    let nextPos = currentPosInList + 1;
+    while (nextPos < activeTeamsList.length && !isTeamEligibleToPlay(activeTeamsList[nextPos])) {
+      nextPos++;
     }
 
-    // Si aún quedan equipos por jugar en esta ronda, ceder el turno al siguiente equipo válido
-    if (gameState.currentRoundTurnCount < activeTeamsList.length && gameState.teamHands[candidateTeam].length > 0) {
-      gameState.currentTurnTeamIndex = candidateTeam;
+    if (nextPos < activeTeamsList.length) {
+      gameState.currentTurnTeamIndex = activeTeamsList[nextPos];
+      gameState.currentRoundTurnCount = nextPos;
+      gameState.selectedHandCardId = null;
       gameState.isMoveProcessing = false;
       updateHud();
       renderTeamHand();
@@ -1699,7 +2131,7 @@ function advanceTurnOrEvaluateRound() {
     }
   }
 
-  // EVALUACIÓN OFICIAL AL FINALIZAR LA RONDA (todos los equipos jugaron igual número de turnos)
+  // EVALUACIÓN OFICIAL AL FINALIZAR LA RONDA (todos los equipos activos jugaron o fueron omitidos si quedaron vacíos)
   gameState.currentRoundTurnCount = 0;
   gameState.totalRoundsCompleted++;
 
@@ -1712,13 +2144,24 @@ function advanceTurnOrEvaluateRound() {
   }
 
   if (zeroCardTeams.length > 1) {
-    gameState.isTieBreakMode = true;
-    gameState.tieBreakTeamIndices = zeroCardTeams;
+    const activeZeroCardTeams = usesAssignedRoster()
+      ? zeroCardTeams.filter(t => getTeamMemberCount(t) > 0)
+      : zeroCardTeams;
 
-    addChatMessage("🤖 Sistema", `⚡ ¡¡DESEMPATE DE INFARTO!! Los equipos ${zeroCardTeams.map(t => ALL_TEAMS[t].name).join(" y ")} terminaron la ronda sin cartas. ¡Cada uno roba 1 carta para la ronda de desempate!`);
+    if (activeZeroCardTeams.length === 1) {
+      gameState.isMoveProcessing = false;
+      declareWinner(activeZeroCardTeams[0]);
+      return;
+    }
+
+    const tieTeams = activeZeroCardTeams.length > 1 ? activeZeroCardTeams : zeroCardTeams;
+    gameState.isTieBreakMode = true;
+    gameState.tieBreakTeamIndices = tieTeams;
+
+    addChatMessage("🤖 Sistema", `⚡ ¡¡DESEMPATE DE INFARTO!! Los equipos ${tieTeams.map(t => ALL_TEAMS[t].name).join(" y ")} terminaron la ronda sin cartas. ¡Cada uno roba 1 carta para la ronda de desempate!`);
 
     let availableDeck = gameState.reserveDeck.length > 0;
-    zeroCardTeams.forEach(t => {
+    tieTeams.forEach(t => {
       if (gameState.reserveDeck.length > 0) {
         const tieCard = gameState.reserveDeck.pop();
         gameState.teamHands[t].push(tieCard);
@@ -1728,11 +2171,23 @@ function advanceTurnOrEvaluateRound() {
 
     if (!availableDeck) {
       gameState.isMoveProcessing = false;
-      declareTie(zeroCardTeams);
+      declareTie(tieTeams);
       return;
     }
 
-    gameState.currentTurnTeamIndex = zeroCardTeams[0];
+    let firstTiePos = 0;
+    while (firstTiePos < tieTeams.length && !isTeamEligibleToPlay(tieTeams[firstTiePos])) {
+      firstTiePos++;
+    }
+    if (firstTiePos >= tieTeams.length) {
+      gameState.isMoveProcessing = false;
+      finalizeMatchNoActiveStudents();
+      return;
+    }
+
+    gameState.currentTurnTeamIndex = tieTeams[firstTiePos];
+    gameState.currentRoundTurnCount = firstTiePos;
+    gameState.selectedHandCardId = null;
     gameState.isMoveProcessing = false;
     updateHud();
     renderTeamHand();
@@ -1747,15 +2202,27 @@ function advanceTurnOrEvaluateRound() {
     return;
   }
 
-  // Inicio de la nueva ronda: garantizar rotación al siguiente equipo distinto si es posible
-  let nextRoundStarter = activeTeamsList[0];
-  if (activeTeamsList.length > 1 && nextRoundStarter === previousTeamIndex) {
-    const prevIdx = activeTeamsList.indexOf(previousTeamIndex);
-    nextRoundStarter = activeTeamsList[(prevIdx + 1) % activeTeamsList.length];
+  // Inicio de la nueva ronda: seleccionar el primer equipo elegible (con cartas y con integrantes conectados)
+  const refreshedTeamsList = (gameState.isTieBreakMode && gameState.tieBreakTeamIndices.length > 0)
+    ? gameState.tieBreakTeamIndices
+    : Array.from({ length: gameState.numTeams }, (_, i) => i);
+
+  let startPos = 0;
+  while (startPos < refreshedTeamsList.length && !isTeamEligibleToPlay(refreshedTeamsList[startPos])) {
+    startPos++;
   }
 
-  gameState.currentTurnTeamIndex = nextRoundStarter;
+  if (startPos >= refreshedTeamsList.length) {
+    gameState.isMoveProcessing = false;
+    finalizeMatchNoActiveStudents();
+    return;
+  }
+
+  gameState.currentTurnTeamIndex = refreshedTeamsList[startPos];
+  gameState.currentRoundTurnCount = startPos;
+  gameState.selectedHandCardId = null;
   gameState.isMoveProcessing = false;
+  applyGameModeUI();
   updateHud();
   renderTeamHand();
   startTurnTimer();
@@ -1806,11 +2273,16 @@ function closeConfirmEndMatchModal() {
 }
 
 function computeCurrentStandingsOutcome() {
+  const checkRoster = usesAssignedRoster();
+  const hasAnyOccupiedTeam = checkRoster && Array.from({ length: gameState.numTeams }, (_, i) => i)
+    .some(t => getTeamMemberCount(t) > 0);
+
   const teams = [];
   for (let t = 0; t < gameState.numTeams; t++) {
     const stats = gameState.teamStats[t] || { correct: 0, errors: 0, attempts: 0 };
     const cardsRemaining = (gameState.teamHands[t] || []).length;
     const eff = stats.attempts > 0 ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+    const isAbandoned = Boolean(hasAnyOccupiedTeam && getTeamMemberCount(t) === 0);
     teams.push({
       teamIndex: t,
       team: ALL_TEAMS[t],
@@ -1818,12 +2290,14 @@ function computeCurrentStandingsOutcome() {
       correct: stats.correct,
       errors: stats.errors,
       attempts: stats.attempts,
-      eff
+      eff,
+      isAbandoned
     });
   }
 
-  // Ordenar: 1) Menos cartas restantes, 2) Mayor efectividad %, 3) Más aciertos
+  // Ordenar: 0) Equipos con integrantes activos antes que equipos vacíos, 1) Menos cartas restantes, 2) Mayor efectividad %, 3) Más aciertos
   teams.sort((a, b) => {
+    if (a.isAbandoned !== b.isAbandoned) return a.isAbandoned ? 1 : -1;
     if (a.cardsRemaining !== b.cardsRemaining) return a.cardsRemaining - b.cardsRemaining;
     if (b.eff !== a.eff) return b.eff - a.eff;
     if (b.correct !== a.correct) return b.correct - a.correct;
@@ -1832,6 +2306,7 @@ function computeCurrentStandingsOutcome() {
 
   const top = teams[0];
   const coLeaders = teams.filter(item =>
+    item.isAbandoned === top.isAbandoned &&
     item.cardsRemaining === top.cardsRemaining &&
     item.eff === top.eff &&
     item.correct === top.correct
@@ -1889,7 +2364,7 @@ function reopenGameOverModal() {
 function teacherRematchSameRoom() {
   if (gameState.userRole !== 'teacher') return;
   if (gameState.gameMode === 'online') {
-    teacherStartMatchForAllStudents();
+    teacherStartMatchForAllStudents(true);
   } else {
     closeAllModals();
     gameState.isGameStarted = true;
@@ -1957,9 +2432,10 @@ function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = [],
       const badge = isLeader ? "🥇" : (medals[idx] || `${idx + 1}°`);
       return `
         <div class="final-standings__row ${isLeader ? 'final-standings__row--leader' : ''}">
-          <div style="display: flex; align-items: center; gap: 0.45rem;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
             <span>${badge}</span>
             <strong style="color: ${item.team.color};">${item.team.icon} ${item.team.name}</strong>
+            ${item.isAbandoned ? `<span class="team-empty-badge">Sin integrantes</span>` : ""}
           </div>
           <div class="final-standings__meta">
             <span>🎴 ${item.cardsRemaining} rest.</span>
@@ -2114,10 +2590,14 @@ function renderTeacherDashboard() {
     const stats = gameState.teamStats[t];
     const handCount = gameState.teamHands[t].length;
     const eff = stats.attempts > 0 ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+    const isVacatedMidGame = gameState.isGameStarted && usesAssignedRoster() && getTeamMemberCount(t) === 0;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><strong style="color: ${team.color};">${team.icon} ${team.name}</strong></td>
+      <td>
+        <strong style="color: ${team.color};">${team.icon} ${team.name}</strong>
+        ${isVacatedMidGame ? `<span class="team-empty-badge">Turno omitido</span>` : ""}
+      </td>
       <td style="font-family: var(--font-heading);">${handCount} cartas</td>
       <td style="font-family: var(--font-heading); color: var(--color-neon-cyan);">${eff}%</td>
       <td>

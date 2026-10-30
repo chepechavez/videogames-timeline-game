@@ -1230,3 +1230,53 @@ body {
   font-size: 0.82rem;
   text-align: center;
 }
+
+/* ==========================================================================
+   17. EMPTY TEAMS VALIDATION MODAL & TEACHER SKIP-TURN CONTROLS (v12.3)
+   ========================================================================== */
+.modal-overlay--top {
+  z-index: 1100;
+}
+
+.btn-warning-outline {
+  background: rgba(255, 234, 0, 0.1);
+  border: 1px solid var(--color-neon-yellow);
+  color: var(--color-neon-yellow);
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-warning-outline:hover {
+  background: var(--color-neon-yellow);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 15px rgba(255, 234, 0, 0.45);
+}
+
+.team-validation-summary {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px dashed rgba(255, 234, 0, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--color-text-main);
+}
+
+.team-empty-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-family: var(--font-heading);
+  background: rgba(255, 234, 0, 0.12);
+  border: 1px solid rgba(255, 234, 0, 0.45);
+  color: var(--color-neon-yellow);
+}

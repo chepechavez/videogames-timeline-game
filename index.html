@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.2 -->
-  <link rel="stylesheet" href="styles.css?v=12.2">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.3 -->
+  <link rel="stylesheet" href="styles.css?v=12.3">
 </head>
 <body>
 
@@ -80,6 +80,10 @@
         <!-- BOTÓN PARA REABRIR RESULTADOS TRAS FINALIZAR PARTIDA -->
         <button class="btn-secondary" id="btnReopenResultsBar" style="font-size: 0.75rem; padding: 0.3rem 0.75rem; border-color: var(--color-neon-yellow); color: var(--color-neon-yellow); display: none;" onclick="reopenGameOverModal()">
           🏆 Ver Resultados
+        </button>
+        <!-- BOTÓN DE SALTAR TURNO: EXCLUSIVO PARA EL PROFESOR (ONLINE Y PIZARRA) -->
+        <button class="btn-warning-outline" id="btnTeacherSkipTurnBar" style="display: none;" onclick="teacherSkipCurrentTurn()" title="Saltar el turno actual si el estudiante o equipo no está disponible">
+          ⏭️ Saltar Turno
         </button>
         <!-- BOTÓN DE FINALIZAR PARTIDA: EXCLUSIVO PARA EL PROFESOR (ONLINE Y PIZARRA) -->
         <button class="btn-danger-outline" id="btnTeacherEndMatchBar" style="display: none;" onclick="openConfirmEndMatchModal()">
@@ -213,6 +217,11 @@
               <span class="live-indicator__dot"></span>
               <span>EN VIVO - Actualizando...</span>
             </div>
+
+            <!-- BOTÓN DE SALTAR TURNO DESDE EL PANEL DOCENTE -->
+            <button class="btn-warning-outline" id="btnTeacherDashboardSkipTurn" style="display: none; padding: 0.5rem 1rem;" onclick="teacherSkipCurrentTurn()" title="Saltar el turno actual si el estudiante o equipo no está disponible">
+              ⏭️ Saltar Turno
+            </button>
 
             <!-- BOTÓN DE FINALIZAR PARTIDA DESDE EL PANEL DOCENTE -->
             <button class="btn-danger-outline" id="btnTeacherDashboardEndMatch" style="display: none; padding: 0.5rem 1rem;" onclick="openConfirmEndMatchModal()">
@@ -661,10 +670,30 @@
     </div>
   </div>
 
+  <!-- MODAL 7: EMPTY TEAMS REDUCTION / MINIMUM STUDENTS VALIDATION -->
+  <div class="modal-overlay modal-overlay--top" id="modalTeamValidation">
+    <div class="modal" style="max-width: 540px; border-color: var(--color-neon-yellow); text-align: center;">
+      <div style="font-size: 2.4rem; margin-bottom: 0.1rem;" id="teamValidationIcon">⚠️</div>
+      <h2 class="modal__title" style="color: var(--color-neon-yellow);" id="teamValidationTitle">HAY EQUIPOS SIN ESTUDIANTES</h2>
+      <p class="modal__subtitle" style="color: var(--color-text-main); line-height: 1.5;" id="teamValidationMessage">
+        Hay menos estudiantes conectados que equipos configurados.
+      </p>
+      <div class="team-validation-summary" id="teamValidationSummary" style="display: none;"></div>
+      <div style="display: flex; gap: 0.8rem; margin-top: 0.4rem; flex-wrap: wrap;">
+        <button type="button" class="btn-secondary" id="teamValidationWaitBtn" style="flex: 1; min-width: 170px; border-color: var(--color-neon-cyan); color: var(--color-neon-cyan);" onclick="closeTeamValidationModal()">
+          ⏳ Esperar Estudiantes
+        </button>
+        <button type="button" class="btn-primary" id="teamValidationConfirmBtn" style="flex: 1; min-width: 190px; display: none;" onclick="confirmTeamValidationAction()">
+          🚀 Iniciar con Reducción
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=12.2 -->
-  <script src="app.js?v=12.2"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=12.3 -->
+  <script src="app.js?v=12.3"></script>
 </body>
 </html>
