@@ -154,8 +154,10 @@ let gameState = {
   teamStreaks: { 0: 0, 1: 0, 2: 0, 3: 0 },
   chatMessages: [],
   isGameOver: false,
+  endedByTeacher: false,
   winnerTeamIndex: null,
   isTie: false,
+  tiedWinnerIndices: [],
   isGameStarted: false
 };
 
@@ -326,6 +328,11 @@ function initSupabaseRealtime(onSubscribedCallback = null) {
             handleIncomingStudentReconnect(payload.payload);
           }
         })
+        .on('broadcast', { event: 'student_left' }, payload => {
+          if (payload.payload) {
+            handleIncomingStudentLeft(payload.payload);
+          }
+        })
         .on('broadcast', { event: 'roster_sync' }, payload => {
           if (payload.payload) {
             handleIncomingRosterSync(payload.payload);
@@ -401,7 +408,7 @@ function handleIncomingRoomAck(data) {
   isVerifyingRoomJoin = false;
   resetStudentJoinButtonUI();
 
-  // Si la partida ya comenzó y el estudiante NO estaba registrado en ella, bloquear entrada tardía
+  // Si la partida está en curso y el estudiante NO estaba registrado en ella, bloquear entrada tardía
   if (data.isGameStarted && !data.isGameOver && !data.isRegisteredStudent) {
     playSynthSound('error');
     setStudentJoinStatus(
@@ -412,8 +419,8 @@ function handleIncomingRoomAck(data) {
     return;
   }
 
-  // Si el estudiante ya estaba registrado y recargó su navegador en plena partida, reconectarlo
-  if (data.isGameStarted && !data.isGameOver && data.isRegisteredStudent) {
+  // Si el estudiante ya estaba registrado y recargó/reingresó (en plena partida o en pantalla de resultados), reconectarlo
+  if (data.isGameStarted && data.isRegisteredStudent) {
     setStudentJoinStatus("", "clear");
     if (realtimeChannel) {
       realtimeChannel.send({
@@ -471,17 +478,44 @@ function handleIncomingRoomAck(data) {
 }
 
 function handleIncomingRoomClosed(data) {
-  if (gameState.userRole !== 'student' || gameState.isGameStarted) return;
+  if (gameState.userRole !== 'student') return;
   if (data && data.roomCode && data.roomCode !== gameState.roomCode) return;
 
+  if (!gameState.isGameStarted) {
+    cleanupRealtimeChannel();
+    closeAllModals();
+    document.getElementById("modalStudentJoin").classList.add("modal-overlay--active");
+    resetStudentJoinButtonUI();
+    setStudentJoinStatus(
+      `ℹ️ El profesor cerró o está reconfigurando la sala "${gameState.roomCode}". Espera a que la abra nuevamente para entrar.`,
+      "info"
+    );
+    return;
+  }
+
+  // Si la partida ya estaba iniciada o finalizada y el profesor sale de la sala
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
   cleanupRealtimeChannel();
-  closeAllModals();
-  document.getElementById("modalStudentJoin").classList.add("modal-overlay--active");
-  resetStudentJoinButtonUI();
-  setStudentJoinStatus(
-    `ℹ️ El profesor cerró o está reconfigurando la sala "${gameState.roomCode}". Espera a que la abra nuevamente para entrar.`,
-    "info"
-  );
+
+  if (!gameState.isGameOver) {
+    const summary = computeCurrentStandingsOutcome();
+    gameState.isGameOver = true;
+    gameState.endedByTeacher = true;
+    gameState.winnerTeamIndex = summary.winnerTeamIndex;
+    gameState.isTie = summary.isTie;
+    gameState.tiedWinnerIndices = summary.tiedWinnerIndices;
+    updateHud();
+    showGameOverModal(summary.winnerTeamIndex, summary.isTie, summary.tiedWinnerIndices);
+  }
+
+  const roomNote = document.getElementById("diagStudentRoomStatusNote");
+  if (roomNote) {
+    roomNote.style.display = "block";
+    roomNote.textContent = "ℹ️ El profesor cerró la sala activa. Puedes seguir explorando los resultados o salir a la portada.";
+  }
 }
 
 function handleIncomingStudentReconnect(studentData) {
@@ -517,7 +551,8 @@ function broadcastStudentJoined(studentData) {
 }
 
 function handleIncomingStudentJoin(studentData) {
-  if (gameState.userRole !== 'teacher' || !gameState.isRoomHostActive || gameState.isGameStarted) return;
+  if (gameState.userRole !== 'teacher' || !gameState.isRoomHostActive) return;
+  if (gameState.isGameStarted && !gameState.isGameOver) return;
   if (!studentData || !studentData.name) return;
 
   const existingIndex = gameState.joinedStudents.findIndex(
@@ -529,7 +564,7 @@ function handleIncomingStudentJoin(studentData) {
     gameState.joinedStudents.push({
       name: studentData.name,
       clientId: studentData.clientId,
-      teamId: 0
+      teamId: gameState.joinedStudents.length % gameState.numTeams
     });
     rosterChanged = true;
   } else if (gameState.joinedStudents[existingIndex].clientId !== studentData.clientId) {
@@ -537,17 +572,60 @@ function handleIncomingStudentJoin(studentData) {
     rosterChanged = true;
   }
 
-  gameState.joinedStudents.forEach((s, idx) => {
-    s.teamId = idx % gameState.numTeams;
-  });
+  if (!gameState.isGameStarted) {
+    gameState.joinedStudents.forEach((s, idx) => {
+      s.teamId = idx % gameState.numTeams;
+    });
+  }
 
   if (rosterChanged) {
     renderTeacherOnlineLobbyGrid();
     renderTeacherDashboard();
+    if (gameState.isGameOver) {
+      const roomNote = document.getElementById("diagStudentRoomStatusNote");
+      if (roomNote && gameState.gameMode === 'online' && realtimeChannel) {
+        roomNote.textContent = `🟢 Sala ${gameState.roomCode} activa (${gameState.joinedStudents.length} estudiantes conectados para otra partida).`;
+      }
+    }
   }
 
   if (rosterChanged || studentData.needsTeamAck) {
     broadcastRosterSync();
+  }
+}
+
+function handleIncomingStudentLeft(data) {
+  if (gameState.userRole !== 'teacher' || !gameState.isRoomHostActive) return;
+  if (!data) return;
+
+  const prevLen = gameState.joinedStudents.length;
+  gameState.joinedStudents = gameState.joinedStudents.filter(s => {
+    if (data.clientId && s.clientId) return s.clientId !== data.clientId;
+    if (data.name) return s.name.toLowerCase() !== data.name.toLowerCase();
+    return true;
+  });
+
+  if (gameState.joinedStudents.length === prevLen) return;
+
+  if (!gameState.isGameStarted) {
+    gameState.joinedStudents.forEach((s, idx) => {
+      s.teamId = idx % gameState.numTeams;
+    });
+    renderTeacherOnlineLobbyGrid();
+  }
+
+  renderTeacherDashboard();
+  broadcastRosterSync();
+
+  if (gameState.isGameStarted && !gameState.isGameOver) {
+    updateHud();
+  }
+
+  if (gameState.isGameOver) {
+    const roomNote = document.getElementById("diagStudentRoomStatusNote");
+    if (roomNote && gameState.gameMode === 'online' && realtimeChannel) {
+      roomNote.textContent = `🟢 Sala ${gameState.roomCode} activa (${gameState.joinedStudents.length} estudiantes conectados para otra partida).`;
+    }
   }
 }
 
@@ -586,6 +664,9 @@ function handleIncomingRosterSync(data) {
     gameState.joinedStudents = data.joinedStudents;
     if (data.numTeams) gameState.numTeams = data.numTeams;
     syncMyAssignedTeamFromRoster();
+    if (gameState.isGameStarted) {
+      updateHud();
+    }
   }
 }
 
@@ -612,8 +693,10 @@ function buildGameSyncPayload() {
     uniqueCardsSeenIds: gameState.uniqueCardsSeenIds,
     isGameStarted: gameState.isGameStarted,
     isGameOver: gameState.isGameOver,
+    endedByTeacher: gameState.endedByTeacher,
     winnerTeamIndex: gameState.winnerTeamIndex,
     isTie: gameState.isTie,
+    tiedWinnerIndices: gameState.tiedWinnerIndices,
     turnSequence: gameState.turnSequence
   };
 }
@@ -638,6 +721,8 @@ function applyIncomingGamePayload(data, isInitialStart = false) {
   if (data.turnStartTimeStamp) gameState.turnStartTimeStamp = data.turnStartTimeStamp;
   if (data.turnTimesList) gameState.turnTimesList = data.turnTimesList;
   if (data.uniqueCardsSeenIds) gameState.uniqueCardsSeenIds = data.uniqueCardsSeenIds;
+  if (data.endedByTeacher !== undefined) gameState.endedByTeacher = Boolean(data.endedByTeacher);
+  if (data.tiedWinnerIndices) gameState.tiedWinnerIndices = data.tiedWinnerIndices;
   if (data.turnSequence !== undefined) gameState.turnSequence = data.turnSequence;
 
   if (isInitialStart) {
@@ -650,8 +735,11 @@ function applyIncomingGamePayload(data, isInitialStart = false) {
 function teacherStartMatchForAllStudents() {
   gameState.isGameStarted = true;
   gameState.isGameOver = false;
+  gameState.endedByTeacher = false;
   gameState.winnerTeamIndex = null;
   gameState.isTie = false;
+  gameState.tiedWinnerIndices = [];
+  switchView('student');
   initNewGame(false);
   closeAllModals();
 
@@ -676,23 +764,29 @@ function handleIncomingStartGame(data) {
 
   gameState.isGameStarted = true;
   gameState.isGameOver = Boolean(data.isGameOver);
+  gameState.endedByTeacher = Boolean(data.endedByTeacher);
   gameState.winnerTeamIndex = data.winnerTeamIndex !== undefined ? data.winnerTeamIndex : null;
   gameState.isTie = Boolean(data.isTie);
+  gameState.tiedWinnerIndices = data.tiedWinnerIndices || [];
   gameState.isMoveProcessing = false;
 
   applyIncomingGamePayload(data, true);
 
   closeAllModals();
+  switchView('student');
   applyGameModeUI();
   updateHud();
   renderTimelineTable();
   renderTeamHand();
   renderTeacherDashboard();
   if (!gameState.isGameOver) {
+    resetChatMessagesBox();
     startTurnTimer();
+    playSynthSound('victory');
+    launchConfetti();
+  } else {
+    showGameOverModal(gameState.winnerTeamIndex, gameState.isTie, gameState.tiedWinnerIndices);
   }
-  playSynthSound('victory');
-  launchConfetti();
 }
 
 function broadcastGameState() {
@@ -736,7 +830,10 @@ function syncIncomingGameState(data) {
     gameState.winnerTeamIndex = data.winnerTeamIndex;
     gameState.isTie = data.isTie;
     clearInterval(gameState.turnTimerInterval);
-    showGameOverModal(data.winnerTeamIndex, data.isTie, data.tieBreakTeamIndices || []);
+    const tiedList = (data.tiedWinnerIndices && data.tiedWinnerIndices.length > 0)
+      ? data.tiedWinnerIndices
+      : (data.tieBreakTeamIndices || []);
+    showGameOverModal(data.winnerTeamIndex, data.isTie, tiedList);
   }
 
   gameState.isMoveProcessing = false;
@@ -779,18 +876,31 @@ function switchView(viewName) {
 }
 
 function openRoleSelectionModal() {
-  // Si el profesor cierra una sala de espera abierta antes de iniciar, avisar a los alumnos en espera
-  if (gameState.userRole === 'teacher' && gameState.isRoomHostActive && !gameState.isGameStarted && realtimeChannel) {
+  // Si el profesor cierra una sala activa (en espera, en partida o post-partida), notificar a los alumnos
+  if (gameState.userRole === 'teacher' && gameState.isRoomHostActive && realtimeChannel) {
     realtimeChannel.send({
       type: 'broadcast',
       event: 'room_closed',
       senderId: gameState.myClientId,
       payload: { roomCode: gameState.roomCode }
     });
+  } else if (gameState.userRole === 'student' && realtimeChannel) {
+    // Si un estudiante sale voluntariamente a la portada, notificar a la sala para actualizar integrantes
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'student_left',
+      senderId: gameState.myClientId,
+      payload: {
+        clientId: gameState.myClientId,
+        name: gameState.playerName,
+        roomCode: gameState.roomCode
+      }
+    });
   }
 
   gameState.isRoomHostActive = false;
   gameState.isGameStarted = false;
+  gameState.isGameOver = false;
   if (gameState.turnTimerInterval) {
     clearInterval(gameState.turnTimerInterval);
     gameState.turnTimerInterval = null;
@@ -799,6 +909,7 @@ function openRoleSelectionModal() {
   cleanupRealtimeChannel();
   resetStudentJoinButtonUI();
   setStudentJoinStatus("", "clear");
+  updatePostGameAndTeacherButtons();
 
   closeAllModals();
   document.getElementById("modalRoleSelection").classList.add("modal-overlay--active");
@@ -1036,6 +1147,26 @@ function applyGameModeUI() {
     if (chatSidebar) chatSidebar.style.display = "flex";
     if (playerBox) playerBox.style.display = "flex";
   }
+
+  updatePostGameAndTeacherButtons();
+}
+
+function updatePostGameAndTeacherButtons() {
+  const canTeacherEndMatch = Boolean(
+    gameState.userRole === 'teacher' &&
+    gameState.isGameStarted &&
+    !gameState.isGameOver
+  );
+
+  const btnEndBar = document.getElementById("btnTeacherEndMatchBar");
+  if (btnEndBar) btnEndBar.style.display = canTeacherEndMatch ? "inline-flex" : "none";
+
+  const btnEndDash = document.getElementById("btnTeacherDashboardEndMatch");
+  if (btnEndDash) btnEndDash.style.display = canTeacherEndMatch ? "inline-flex" : "none";
+
+  const showReopenResults = Boolean(gameState.isGameStarted && gameState.isGameOver);
+  const btnReopenBar = document.getElementById("btnReopenResultsBar");
+  if (btnReopenBar) btnReopenBar.style.display = showReopenResults ? "inline-flex" : "none";
 }
 
 function openViewTeamsModal() {
@@ -1135,11 +1266,14 @@ function initNewGame(shouldBroadcast = true) {
   
   gameState.teamStreaks = { 0: 0, 1: 0, 2: 0, 3: 0 };
   gameState.isGameOver = false;
+  gameState.endedByTeacher = false;
   gameState.winnerTeamIndex = null;
   gameState.isTie = false;
+  gameState.tiedWinnerIndices = [];
   gameState.turnStartTimeStamp = Date.now();
   gameState.isMoveProcessing = false;
   incrementTurnSequence();
+  resetChatMessagesBox();
 
   const anchorCard = gameState.reserveDeck.pop();
   gameState.tableCards.push(anchorCard);
@@ -1214,6 +1348,7 @@ function updateHud() {
   const subtextEl = document.getElementById("hudTurnPlayerSubtext");
 
   const isMyTurn = (
+    !gameState.isGameOver &&
     gameState.userRole === 'student' &&
     gameState.userTeamId === gameState.currentTurnTeamIndex &&
     gameState.playerName &&
@@ -1236,11 +1371,21 @@ function updateHud() {
       playerBox.style.boxShadow = "none";
       playerBox.style.borderLeftColor = "var(--color-neon-cyan)";
     }
-    if (subtextEl) subtextEl.textContent = `⏳ Esperando movimiento de ${activePlayerName}`;
+    if (subtextEl) {
+      subtextEl.textContent = gameState.isGameOver
+        ? "🏁 Partida finalizada — Consulta los resultados"
+        : `⏳ Esperando movimiento de ${activePlayerName}`;
+    }
+  }
+
+  if (gameState.isGameOver) {
+    const timerValEl = document.getElementById("hudTurnTimer");
+    if (timerValEl) timerValEl.textContent = "FIN";
   }
 
   const currentHand = gameState.teamHands[gameState.userTeamId] || [];
   document.getElementById("handCountLabel").textContent = `${currentHand.length} cartas restantes en mano de ${ALL_TEAMS[gameState.userTeamId].name}`;
+  updatePostGameAndTeacherButtons();
 }
 
 /* ==========================================================================
@@ -1333,18 +1478,20 @@ function renderTimelineTable() {
   const count = gameState.tableCards.length;
 
   for (let i = 0; i <= count; i++) {
-    const slot = document.createElement("div");
-    slot.className = "insertion-slot";
-    slot.dataset.slotIndex = i;
+    if (!gameState.isGameOver) {
+      const slot = document.createElement("div");
+      slot.className = "insertion-slot";
+      slot.dataset.slotIndex = i;
 
-    let slotText = "[ + ]";
-    if (i === 0) slotText += "<span class='insertion-slot__label'>Antes</span>";
-    else if (i === count) slotText += "<span class='insertion-slot__label'>Después</span>";
-    else slotText += "<span class='insertion-slot__label'>Entre</span>";
+      let slotText = "[ + ]";
+      if (i === 0) slotText += "<span class='insertion-slot__label'>Antes</span>";
+      else if (i === count) slotText += "<span class='insertion-slot__label'>Después</span>";
+      else slotText += "<span class='insertion-slot__label'>Entre</span>";
 
-    slot.innerHTML = slotText;
-    slot.addEventListener("click", () => handleSlotClick(i));
-    track.appendChild(slot);
+      slot.innerHTML = slotText;
+      slot.addEventListener("click", () => handleSlotClick(i));
+      track.appendChild(slot);
+    }
 
     if (i < count) {
       const card = gameState.tableCards[i];
@@ -1617,11 +1764,15 @@ function advanceTurnOrEvaluateRound() {
 
 function declareWinner(winnerTeamIndex) {
   gameState.isGameOver = true;
+  gameState.endedByTeacher = false;
   gameState.winnerTeamIndex = winnerTeamIndex;
   gameState.isTie = false;
+  gameState.tiedWinnerIndices = [];
   incrementTurnSequence();
 
   clearInterval(gameState.turnTimerInterval);
+  updateHud();
+  renderTimelineTable();
   showGameOverModal(winnerTeamIndex, false);
   sendWebhookTelemetry();
   broadcastGameState();
@@ -1629,19 +1780,133 @@ function declareWinner(winnerTeamIndex) {
 
 function declareTie(tiedTeamIndices) {
   gameState.isGameOver = true;
+  gameState.endedByTeacher = false;
   gameState.winnerTeamIndex = null;
   gameState.isTie = true;
+  gameState.tiedWinnerIndices = tiedTeamIndices || [];
   incrementTurnSequence();
 
   clearInterval(gameState.turnTimerInterval);
+  updateHud();
+  renderTimelineTable();
   showGameOverModal(null, true, tiedTeamIndices);
   sendWebhookTelemetry();
   broadcastGameState();
 }
 
-function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = []) {
-  playSynthSound('victory');
-  launchConfetti();
+function openConfirmEndMatchModal() {
+  if (gameState.userRole !== 'teacher' || !gameState.isGameStarted || gameState.isGameOver) return;
+  const modal = document.getElementById("modalConfirmEndMatch");
+  if (modal) modal.classList.add("modal-overlay--active");
+}
+
+function closeConfirmEndMatchModal() {
+  const modal = document.getElementById("modalConfirmEndMatch");
+  if (modal) modal.classList.remove("modal-overlay--active");
+}
+
+function computeCurrentStandingsOutcome() {
+  const teams = [];
+  for (let t = 0; t < gameState.numTeams; t++) {
+    const stats = gameState.teamStats[t] || { correct: 0, errors: 0, attempts: 0 };
+    const cardsRemaining = (gameState.teamHands[t] || []).length;
+    const eff = stats.attempts > 0 ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+    teams.push({
+      teamIndex: t,
+      team: ALL_TEAMS[t],
+      cardsRemaining,
+      correct: stats.correct,
+      errors: stats.errors,
+      attempts: stats.attempts,
+      eff
+    });
+  }
+
+  // Ordenar: 1) Menos cartas restantes, 2) Mayor efectividad %, 3) Más aciertos
+  teams.sort((a, b) => {
+    if (a.cardsRemaining !== b.cardsRemaining) return a.cardsRemaining - b.cardsRemaining;
+    if (b.eff !== a.eff) return b.eff - a.eff;
+    if (b.correct !== a.correct) return b.correct - a.correct;
+    return a.teamIndex - b.teamIndex;
+  });
+
+  const top = teams[0];
+  const coLeaders = teams.filter(item =>
+    item.cardsRemaining === top.cardsRemaining &&
+    item.eff === top.eff &&
+    item.correct === top.correct
+  );
+
+  const isTie = coLeaders.length > 1;
+  return {
+    rankedTeams: teams,
+    winnerTeamIndex: isTie ? null : top.teamIndex,
+    isTie,
+    tiedWinnerIndices: isTie ? coLeaders.map(c => c.teamIndex) : []
+  };
+}
+
+function confirmTeacherEndMatch() {
+  closeConfirmEndMatchModal();
+  if (gameState.userRole !== 'teacher' || !gameState.isGameStarted || gameState.isGameOver) return;
+
+  const outcome = computeCurrentStandingsOutcome();
+  gameState.isGameOver = true;
+  gameState.endedByTeacher = true;
+  gameState.winnerTeamIndex = outcome.winnerTeamIndex;
+  gameState.isTie = outcome.isTie;
+  gameState.tiedWinnerIndices = outcome.tiedWinnerIndices;
+  gameState.isMoveProcessing = false;
+  gameState.selectedHandCardId = null;
+  incrementTurnSequence();
+
+  if (gameState.turnTimerInterval) {
+    clearInterval(gameState.turnTimerInterval);
+    gameState.turnTimerInterval = null;
+  }
+
+  if (gameState.gameMode === 'online') {
+    addChatMessage("🤖 Sistema", "🛑 El profesor ha finalizado la partida. Mostrando clasificación y resultados finales.");
+  }
+
+  updateHud();
+  renderTimelineTable();
+  renderTeamHand();
+  renderTeacherDashboard();
+  showGameOverModal(outcome.winnerTeamIndex, outcome.isTie, outcome.tiedWinnerIndices, true);
+  sendWebhookTelemetry();
+  broadcastGameState();
+}
+
+function reopenGameOverModal() {
+  if (!gameState.isGameOver) return;
+  const tiedList = (gameState.tiedWinnerIndices && gameState.tiedWinnerIndices.length > 0)
+    ? gameState.tiedWinnerIndices
+    : (gameState.tieBreakTeamIndices || []);
+  showGameOverModal(gameState.winnerTeamIndex, gameState.isTie, tiedList, false);
+}
+
+function teacherRematchSameRoom() {
+  if (gameState.userRole !== 'teacher') return;
+  if (gameState.gameMode === 'online') {
+    teacherStartMatchForAllStudents();
+  } else {
+    closeAllModals();
+    gameState.isGameStarted = true;
+    switchView('student');
+    initNewGame(false);
+  }
+}
+
+function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = [], playCelebration = true) {
+  closeConfirmEndMatchModal();
+  closeCardDetailModal();
+  closeViewTeamsModal();
+
+  if (playCelebration) {
+    playSynthSound('victory');
+    launchConfetti();
+  }
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -1657,17 +1922,112 @@ function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = [])
   const diagRoundsEl = document.getElementById("diagRounds");
   if (diagRoundsEl) diagRoundsEl.textContent = `${gameState.totalRoundsCompleted}`;
 
+  const diagWinnerSubtitle = document.getElementById("diagWinnerSubtitle");
+  if (diagWinnerSubtitle) {
+    diagWinnerSubtitle.textContent = gameState.endedByTeacher
+      ? "🛑 Partida finalizada por el profesor • Clasificación y desempeño de la sesión:"
+      : "🏁 Partida completada • Resumen de desempeño y efectividad de la sesión:";
+  }
+
+  const effectiveTiedList = (tiedTeamIndices && tiedTeamIndices.length > 0)
+    ? tiedTeamIndices
+    : (gameState.tiedWinnerIndices || []);
+
   if (isTie) {
-    const names = tiedTeamIndices && tiedTeamIndices.length > 0
-      ? tiedTeamIndices.map(t => ALL_TEAMS[t].name).join(" y ")
-      : "LOS EQUIPOS EN DESEMPATE";
+    const names = effectiveTiedList.length > 0
+      ? effectiveTiedList.map(t => ALL_TEAMS[t].name).join(" y ")
+      : "LOS EQUIPOS LÍDERES";
     document.getElementById("diagTitle").textContent = `⚖️ ¡EMPATE OFICIAL ENTRE ${names.toUpperCase()}!`;
   } else if (winnerTeamIndex !== null && winnerTeamIndex !== undefined) {
     const winner = ALL_TEAMS[winnerTeamIndex];
     document.getElementById("diagTitle").textContent = `🏆 ¡${winner.name.toUpperCase()} HA GANADO LA PARTIDA!`;
+  } else {
+    document.getElementById("diagTitle").textContent = "🏆 ¡PARTIDA FINALIZADA!";
   }
 
+  // Renderizar tabla de clasificación final por equipos
+  const standingsListEl = document.getElementById("diagStandingsList");
+  if (standingsListEl) {
+    const { rankedTeams } = computeCurrentStandingsOutcome();
+    const medals = ["🥇", "🥈", "🥉", "4°"];
+    standingsListEl.innerHTML = rankedTeams.map((item, idx) => {
+      const isLeader = isTie
+        ? effectiveTiedList.includes(item.teamIndex)
+        : (item.teamIndex === winnerTeamIndex);
+      const badge = isLeader ? "🥇" : (medals[idx] || `${idx + 1}°`);
+      return `
+        <div class="final-standings__row ${isLeader ? 'final-standings__row--leader' : ''}">
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span>${badge}</span>
+            <strong style="color: ${item.team.color};">${item.team.icon} ${item.team.name}</strong>
+          </div>
+          <div class="final-standings__meta">
+            <span>🎴 ${item.cardsRemaining} rest.</span>
+            <span>✅ ${item.correct}/${item.attempts}</span>
+            <strong style="color: var(--color-neon-cyan);">${item.eff}%</strong>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  const feedbackEl = document.getElementById("diagFeedbackMessage");
+  if (feedbackEl) {
+    feedbackEl.textContent = `¡Excelente trabajo en equipo! Lograron ordenar ${gameState.tableCards.length} hitos históricos en la línea de tiempo. Pueden explorarla a continuación.`;
+  }
+
+  // Estado de permanencia en la misma sala (modo en línea)
+  const roomNote = document.getElementById("diagStudentRoomStatusNote");
+  if (roomNote) {
+    if (gameState.gameMode === 'online') {
+      roomNote.style.display = "block";
+      if (gameState.userRole === 'student') {
+        roomNote.textContent = realtimeChannel
+          ? `🟢 Sigues conectado en la sala ${gameState.roomCode}: si el profesor inicia otra partida, entrarás automáticamente.`
+          : "ℹ️ El profesor cerró la sala activa. Puedes seguir explorando los resultados o salir a la portada.";
+      } else {
+        roomNote.textContent = realtimeChannel
+          ? `🟢 Sala ${gameState.roomCode} activa (${gameState.joinedStudents.length} estudiantes siguen conectados si deseas iniciar otra partida).`
+          : "";
+        if (!realtimeChannel) roomNote.style.display = "none";
+      }
+    } else {
+      roomNote.style.display = "none";
+    }
+  }
+
+  // Botonera post-partida diferenciada según rol (Profesor vs Estudiante)
+  const teacherActions = document.getElementById("diagTeacherActions");
+  const studentActions = document.getElementById("diagStudentActions");
+  if (gameState.userRole === 'teacher') {
+    if (teacherActions) {
+      teacherActions.style.display = "flex";
+      const rematchBtn = teacherActions.querySelector(".btn-primary");
+      if (rematchBtn) {
+        rematchBtn.textContent = gameState.gameMode === 'online'
+          ? "🔄 NUEVA PARTIDA (MISMA SALA Y EQUIPOS)"
+          : "🔄 NUEVA PARTIDA (MISMOS EQUIPOS)";
+      }
+    }
+    if (studentActions) studentActions.style.display = "none";
+  } else {
+    if (teacherActions) teacherActions.style.display = "none";
+    if (studentActions) studentActions.style.display = "flex";
+  }
+
+  updatePostGameAndTeacherButtons();
   document.getElementById("modalDiagnostic").classList.add("modal-overlay--active");
+}
+
+function resetChatMessagesBox() {
+  const container = document.getElementById("chatMessages");
+  if (!container) return;
+  container.innerHTML = `
+    <div class="chat-msg">
+      <span class="chat-msg__sender">🤖 Sistema:</span>
+      ¡Bienvenidos! Utilicen este chat para debatir la fecha entre su equipo antes de tirar la carta.
+    </div>
+  `;
 }
 
 function handleSendChatMessage(e) {

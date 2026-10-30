@@ -2,7 +2,7 @@
 
 > **Documento de Referencia Viva (Single Source of Truth)**  
 > Este documento se actualiza en **cada actualización del repositorio** para mantener sincronizado el contexto entre los dos equipos de trabajo.  
-> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.1`)  
+> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.2`)  
 > **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`  
 > **Despliegue activo:** GitHub Pages (`https://chepechavez.github.io/videogames-timeline-game/`)
 
@@ -33,9 +33,9 @@
 
 ```text
 videogames-timeline-game/
-├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, inspección, diagnóstico), HUD y KPIs (v=12.1)
-├── app.js                   # Motor Timeline, validación de salas, sincronización completa Supabase Realtime y audio Web Audio API (v=12.1)
-├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive y estilos del minitutorial (v=12.1)
+├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, confirmación cierre, resultados), HUD y KPIs (v=12.2)
+├── app.js                   # Motor Timeline, control docente de cierre/revancha, sincronización Supabase Realtime y audio Web Audio API (v=12.2)
+├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive, minitutorial y clasificación final (v=12.2)
 ├── Videogames - Timeline.md # Catálogo fuente de los 74 eventos con imágenes oficiales
 └── PROJECT_STATE.md         # (Este archivo) Estado actual del proyecto, historial y backlog
 ```
@@ -67,19 +67,23 @@ videogames-timeline-game/
 - [x] **Mini-Tutorial Visual en Sala de Espera (Feature v12.0):**
   - Integrado en `#modalStudentWaiting` mientras los estudiantes aguardan el inicio de la partida.
   - Incluye esquema visual de inserción cronológica (`[ + ] Antes` — `1972 Pong` — `[ + ] 👈 Tu Carta` — `1985 NES` — `[ + ] Después`) y las 4 reglas clave, destacando explícitamente el **límite de 60 segundos por turno** y la cesión obligatoria del turno.
-- [x] **Rol Profesor / Tablero General:**
+- [x] **Rol Profesor / Control de Partida y Tablero General:**
   - Código de sala personalizable, lobby en vivo con conteo y distribución automática de equipos, tablero con 4 KPIs dinámicos, leaderboard y ranking de cartas con más errores.
+  - **Finalización Manual de Partida con Confirmación (Feature v12.2):** El profesor dispone del botón `🛑 Finalizar Partida` tanto en el modo **Multijugador Online** como en el modo **Proyector / Pizarra** (en la barra superior de modo y en el Dashboard Docente), protegido por un diálogo de confirmación (`#modalConfirmEndMatch`).
+  - **Clasificación Final y Permanencia Inteligente en Sala (Feature v12.2):**
+    - Al finalizar (por victoria natural o por cierre del docente), todos los dispositivos reciben en tiempo real el modal de resultados con tabla de clasificación por equipos (ordenada por *menos cartas restantes → mayor efectividad % → más aciertos*, determinando ganador o empate oficial), botón `🏆 Ver Resultados` para reabrirlo y exploración limpia de la línea de tiempo armada (sin ranuras `[ + ]`).
+    - **Flujo post-partida híbrido:** Por defecto, los estudiantes **permanecen conectados en la misma sala** (`🟢 Sigues conectado en la sala...`), lo que permite al docente lanzar instantáneamente `🔄 NUEVA PARTIDA (MISMA SALA Y EQUIPOS)` sin que nadie vuelva a digitar código ni nombre; a la vez, tanto alumnos como docente cuentan con `🏠 Salir a Portada` (notificando `student_left` si un alumno abandona la sala).
 
 #### C. Audio, Efectos Visuales y Despliegue:
 - [x] Sintetizador retro con `Web Audio API`, partículas de confetti en canvas, popups de racha y overlay CRT.
-- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.1`.
+- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.2`.
 
 ---
 
 ## 🎯 5. ¿Qué Sigue? (Backlog & Próximas Mejoras Opcionales)
 
-1. **Pruebas en vivo de validación v12.1:**
-   - Verificar en sesión real la rotación estricta de turnos, la conservación de tarjeta al fallar para reintentar, el bloqueo de ingreso previo a crear la sala y el mini-tutorial en celulares.
+1. **Pruebas en vivo de validación v12.2:**
+   - Verificar en sesión real el cierre manual de partida docente (con confirmación, resultados en celulares y revancha en la misma sala), la rotación estricta de turnos, la conservación de tarjeta al fallar, el bloqueo de salas no creadas y el mini-tutorial.
 2. **Exportación de Reporte Académico Docente (CSV):**
    - Botón opcional en el panel del profesor al finalizar la partida para descargar métricas por equipo e integrantes.
 3. **Filtro de Épocas / Categorías Históricas:**
@@ -114,7 +118,8 @@ videogames-timeline-game/
 
 | Commit / Versión | Descripción Resumida |
 | :--- | :--- |
-| `v12.1` *(actual)* | Ajusta regla de fallo para conservar la tarjeta en la mano del equipo (permitiendo reintentar sin revelar su año) y actualiza el mini-tutorial |
+| `v12.2` *(actual)* | Añade botón docente `🛑 Finalizar Partida` (online y pizarra) con modal de confirmación, tabla de clasificación final sincronizada y permanencia por defecto en la misma sala con opción de revancha inmediata o salir a portada |
+| `5d43cb7` (`v12.1`) | Ajusta regla de fallo para conservar la tarjeta en la mano del equipo (permitiendo reintentar sin revelar su año) y actualiza el mini-tutorial |
 | `7115b0c` (`v12.0`) | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s |
 | `12030ec` | Docs: Creación inicial de `PROJECT_STATE.md` para trabajo entre dos equipos |
 | `41139a4` | Secuenciación monotónica `turnSequence` y salto de equipos sin cartas |

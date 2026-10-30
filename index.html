@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.1 -->
-  <link rel="stylesheet" href="styles.css?v=12.1">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.2 -->
+  <link rel="stylesheet" href="styles.css?v=12.2">
 </head>
 <body>
 
@@ -75,8 +75,16 @@
         <span id="currentModeLabel" style="color: #fff; font-weight: bold;">📺 Proyector de Aula (1 Pantalla)</span>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
         <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="activeTeamsBadge">4 Equipos Activos</span>
+        <!-- BOTÓN PARA REABRIR RESULTADOS TRAS FINALIZAR PARTIDA -->
+        <button class="btn-secondary" id="btnReopenResultsBar" style="font-size: 0.75rem; padding: 0.3rem 0.75rem; border-color: var(--color-neon-yellow); color: var(--color-neon-yellow); display: none;" onclick="reopenGameOverModal()">
+          🏆 Ver Resultados
+        </button>
+        <!-- BOTÓN DE FINALIZAR PARTIDA: EXCLUSIVO PARA EL PROFESOR (ONLINE Y PIZARRA) -->
+        <button class="btn-danger-outline" id="btnTeacherEndMatchBar" style="display: none;" onclick="openConfirmEndMatchModal()">
+          🛑 Finalizar Partida
+        </button>
         <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR -->
         <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
           🔄 Cambiar Modo / Crear Partida
@@ -200,11 +208,16 @@
             <span id="dashboardTitleText">📺 PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO</span>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
             <div class="live-indicator">
               <span class="live-indicator__dot"></span>
               <span>EN VIVO - Actualizando...</span>
             </div>
+
+            <!-- BOTÓN DE FINALIZAR PARTIDA DESDE EL PANEL DOCENTE -->
+            <button class="btn-danger-outline" id="btnTeacherDashboardEndMatch" style="display: none; padding: 0.5rem 1rem;" onclick="openConfirmEndMatchModal()">
+              🛑 Finalizar Partida
+            </button>
 
             <!-- BOTÓN DE CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR -->
             <button class="btn-primary" id="btnTeacherDashboardCreateMatch" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
@@ -566,11 +579,38 @@
     </div>
   </div>
 
+  <!-- MODAL 5.5: CONFIRMATION BEFORE TEACHER ENDS MATCH -->
+  <div class="modal-overlay" id="modalConfirmEndMatch">
+    <div class="modal" style="max-width: 480px; border-color: var(--color-neon-pink); text-align: center;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.1rem;">🛑</div>
+      <h2 class="modal__title" style="color: var(--color-neon-pink);">¿FINALIZAR LA PARTIDA?</h2>
+      <p class="modal__subtitle" style="color: var(--color-text-main); line-height: 1.45;">
+        ¿Estás seguro de dar por terminada la partida actual? Se detendrá el temporizador y se mostrará la clasificación y resultados finales a todos los participantes.
+      </p>
+      <div style="display: flex; gap: 0.8rem; margin-top: 0.5rem;">
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="closeConfirmEndMatchModal()">
+          ◀ Cancelar
+        </button>
+        <button type="button" class="btn-primary" style="width: 100%;" onclick="confirmTeacherEndMatch()">
+          🛑 Sí, Finalizar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL 6: DIAGNOSTIC & GAME OVER SUMMARY -->
   <div class="modal-overlay" id="modalDiagnostic">
-    <div class="modal" style="max-width: 620px;">
+    <div class="modal" style="max-width: 640px;">
       <h2 class="modal__title" id="diagTitle">🏆 ¡PARTIDA FINALIZADA!</h2>
       <p class="modal__subtitle" id="diagWinnerSubtitle">Resumen de desempeño y efectividad de la sesión:</p>
+
+      <!-- CLASIFICACIÓN FINAL POR EQUIPOS -->
+      <div class="final-standings" id="diagStandingsContainer">
+        <div class="final-standings__title">🏅 CLASIFICACIÓN FINAL DE EQUIPOS</div>
+        <div id="diagStandingsList" style="display: flex; flex-direction: column; gap: 0.4rem;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
 
       <div class="diagnostic-grid">
         <div class="diagnostic-box">
@@ -584,21 +624,38 @@
         </div>
       </div>
 
-      <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; text-align: center;">
+      <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 0.85rem 1rem; text-align: center;">
         <p style="font-size: 0.9rem; color: var(--color-text-main);" id="diagFeedbackMessage">
           ¡Extraordinario trabajo en equipo y estrategia cronológica! Ahora pueden explorar la línea de tiempo armada.
         </p>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
-        <!-- BOTÓN DE EXPLORACIÓN DE LA LÍNEA DE TIEMPO FINAL -->
-        <button class="btn-secondary" style="border-color: var(--color-neon-cyan); color: var(--color-neon-cyan); font-size: 1rem; padding: 0.7rem;" onclick="closeDiagnosticAndExploreTimeline()">
+      <!-- AVISO DE CONEXIÓN A LA MISMA SALA PARA ESTUDIANTES ONLINE -->
+      <div class="room-stay-badge" id="diagStudentRoomStatusNote" style="display: none;">
+        🟢 Sigues conectado en esta sala: si el profesor inicia otra ronda, entrarás automáticamente.
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem;">
+        <!-- BOTÓN DE EXPLORACIÓN DE LA LÍNEA DE TIEMPO FINAL (TODOS) -->
+        <button class="btn-secondary" style="border-color: var(--color-neon-cyan); color: var(--color-neon-cyan); font-size: 0.95rem; padding: 0.7rem;" onclick="closeDiagnosticAndExploreTimeline()">
           📜 EXPLORAR LÍNEA DE TIEMPO ARMADA Y SUS HISTORIAS
         </button>
 
-        <div style="display: flex; gap: 1rem;">
-          <button class="btn-primary" onclick="restartGame()">🔄 Nueva Partida</button>
+        <!-- ACCIONES POST-PARTIDA DEL PROFESOR -->
+        <div id="diagTeacherActions" style="display: flex; flex-direction: column; gap: 0.65rem;">
+          <button class="btn-primary" onclick="teacherRematchSameRoom()">
+            🔄 NUEVA PARTIDA (MISMA SALA Y EQUIPOS)
+          </button>
+          <div style="display: flex; gap: 0.8rem;">
+            <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Tablero General</button>
+            <button class="btn-secondary" style="width: 100%;" onclick="restartGame()">🏠 Salir a Portada</button>
+          </div>
+        </div>
+
+        <!-- ACCIONES POST-PARTIDA DEL ESTUDIANTE -->
+        <div id="diagStudentActions" style="display: none; gap: 0.8rem;">
           <button class="btn-secondary" style="width: 100%;" onclick="closeDiagnosticAndGoDashboard()">📊 Ver Tablero General</button>
+          <button class="btn-secondary" style="width: 100%;" onclick="restartGame()">🏠 Salir a Portada</button>
         </div>
       </div>
     </div>
@@ -607,7 +664,7 @@
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=12.1 -->
-  <script src="app.js?v=12.1"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=12.2 -->
+  <script src="app.js?v=12.2"></script>
 </body>
 </html>
