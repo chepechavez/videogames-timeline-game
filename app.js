@@ -18,6 +18,7 @@ let roomJoinRetryTimeout = null;
 let isVerifyingRoomJoin = false;
 let studentHasReceivedTeamAck = false;
 let pendingTeamValidationConfirmCallback = null;
+let pendingExitConfirmCallback = null;
 
 const WEBHOOK_URL = "";
 
@@ -1170,6 +1171,7 @@ function syncIncomingGameState(data) {
    INITIALIZATION & ROLE SELECTION FLOW
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
+  applyGameModeUI();
   renderTeacherDashboard();
   setInterval(renderTeacherDashboard, 3000);
   setupTimelineScrollWheel();
@@ -1195,7 +1197,7 @@ function switchView(viewName) {
   }
 }
 
-function openRoleSelectionModal() {
+function terminateActiveSessionIfNeeded() {
   // Si el profesor cierra una sala activa (en espera, en partida o post-partida), notificar a los alumnos
   if (gameState.userRole === 'teacher' && gameState.isRoomHostActive && realtimeChannel) {
     realtimeChannel.send({
@@ -1221,6 +1223,7 @@ function openRoleSelectionModal() {
   gameState.isRoomHostActive = false;
   gameState.isGameStarted = false;
   gameState.isGameOver = false;
+  gameState.isMoveProcessing = false;
   if (gameState.turnTimerInterval) {
     clearInterval(gameState.turnTimerInterval);
     gameState.turnTimerInterval = null;
@@ -1230,18 +1233,170 @@ function openRoleSelectionModal() {
   resetStudentJoinButtonUI();
   setStudentJoinStatus("", "clear");
   updatePostGameAndTeacherButtons();
+  renderTeacherDashboard();
+}
 
+function openConfirmExitModal({
+  icon = "⚠️",
+  title = "¿SALIR A LA PORTADA?",
+  message = "",
+  cancelLabel = "◀ No, quedarme aquí",
+  confirmLabel = "🏠 Sí, Salir a Portada",
+  onConfirm = null
+}) {
+  const modal = document.getElementById("modalConfirmExit");
+  if (!modal) {
+    if (typeof onConfirm === "function") onConfirm();
+    return;
+  }
+
+  const iconEl = document.getElementById("confirmExitIcon");
+  const titleEl = document.getElementById("confirmExitTitle");
+  const msgEl = document.getElementById("confirmExitMessage");
+  const cancelBtn = document.getElementById("confirmExitCancelBtn");
+  const proceedBtn = document.getElementById("confirmExitProceedBtn");
+
+  if (iconEl) iconEl.textContent = icon;
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = message;
+  if (cancelBtn) cancelBtn.textContent = cancelLabel;
+  if (proceedBtn) proceedBtn.textContent = confirmLabel;
+
+  pendingExitConfirmCallback = typeof onConfirm === "function" ? onConfirm : null;
+  modal.classList.add("modal-overlay--active");
+}
+
+function closeConfirmExitModal() {
+  pendingExitConfirmCallback = null;
+  const modal = document.getElementById("modalConfirmExit");
+  if (modal) modal.classList.remove("modal-overlay--active");
+}
+
+function confirmExitAction() {
+  const callback = pendingExitConfirmCallback;
+  closeConfirmExitModal();
+  if (typeof callback === "function") {
+    callback();
+  }
+}
+
+function requestExitToCover() {
+  if (!gameState.isGameStarted && !gameState.isRoomHostActive) {
+    openRoleSelectionModal();
+    return;
+  }
+
+  let message = "";
+  if (gameState.userRole === 'teacher') {
+    if (gameState.isGameOver) {
+      message = (gameState.gameMode === 'online' && gameState.isRoomHostActive)
+        ? `Si sales a la portada ahora, se cerrará definitivamente la sala "${gameState.roomCode}" para los estudiantes conectados y ya no podrás regresar a estos resultados ni seguir explorando la línea de tiempo armada.`
+        : "Si sales a la portada ahora, se cerrará la sesión actual y ya no podrás regresar a estos resultados, métricas ni seguir explorando la línea de tiempo armada.";
+    } else {
+      message = (gameState.gameMode === 'online' && gameState.isRoomHostActive)
+        ? `La partida en la sala "${gameState.roomCode}" sigue en curso. Si sales a la portada, se cerrará la sala para todos los estudiantes y no podrás regresar.`
+        : "La partida sigue en curso. Si sales a la portada, perderás el progreso actual y no podrás regresar.";
+    }
+  } else {
+    if (gameState.isGameOver) {
+      message = (gameState.gameMode === 'online' && realtimeChannel)
+        ? `Si sales a la portada ahora, abandonarás la sala "${gameState.roomCode}" y ya no podrás regresar a ver estos resultados ni terminar de explorar la línea de tiempo armada (tampoco entrarás automáticamente si el profesor inicia otra ronda).`
+        : "Si sales a la portada ahora, ya no podrás regresar a ver estos resultados ni terminar de explorar la línea de tiempo armada.";
+    } else {
+      message = `La partida en la sala "${gameState.roomCode}" aún está en curso. Si sales a la portada, abandonarás a tu equipo y ya no podrás regresar a esta sesión.`;
+    }
+  }
+
+  openConfirmExitModal({
+    icon: "⚠️",
+    title: "¿SALIR A LA PORTADA?",
+    message,
+    cancelLabel: "◀ No, quedarme aquí",
+    confirmLabel: "🏠 Sí, Salir a Portada",
+    onConfirm: () => openRoleSelectionModal()
+  });
+}
+
+function executeExitToTeacherConfig() {
+  terminateActiveSessionIfNeeded();
+  gameState.userRole = "teacher";
+
+  const modeSelect = document.getElementById("selectGameModeSetting");
+  if (modeSelect && gameState.gameMode) {
+    modeSelect.value = gameState.gameMode;
+  }
+  const teamsSelect = document.getElementById("selectNumTeamsSetting");
+  if (teamsSelect && gameState.configuredNumTeams) {
+    teamsSelect.value = String(gameState.configuredNumTeams);
+  }
+  const roomInput = document.getElementById("inputTeacherRoomCode");
+  if (roomInput && gameState.roomCode) {
+    roomInput.value = gameState.roomCode;
+  }
+
+  applyGameModeUI();
+  closeAllModals();
+  document.getElementById("modalTeacherConfig").classList.add("modal-overlay--active");
+  toggleTeacherModeFields();
+}
+
+function requestTeacherChangeMode() {
+  if (!gameState.isGameStarted && !gameState.isRoomHostActive) {
+    executeExitToTeacherConfig();
+    return;
+  }
+
+  let message = "";
+  if (gameState.gameMode === 'online' && gameState.isRoomHostActive) {
+    message = gameState.isGameOver
+      ? `Si pasas a configurar una nueva partida o cambiar de modo, se cerrará la sala actual "${gameState.roomCode}" para los estudiantes conectados y ya no podrás volver a esta línea de tiempo ni a sus resultados.`
+      : `La partida en la sala "${gameState.roomCode}" sigue en curso. Si pasas a configurar una nueva partida o cambiar de modo, se cerrará la sala actual para todos los estudiantes y no podrás regresar.`;
+  } else {
+    message = gameState.isGameOver
+      ? "Si pasas a configurar una nueva partida o cambiar de modo, se cerrará la sesión actual y ya no podrás regresar a explorar esta línea de tiempo ni ver sus resultados."
+      : "La partida actual sigue en curso. Si pasas a configurar una nueva partida o cambiar de modo, se descartará el progreso actual y no podrás regresar.";
+  }
+
+  openConfirmExitModal({
+    icon: "⚙️",
+    title: "¿CAMBIAR MODO / CREAR PARTIDA?",
+    message,
+    cancelLabel: "◀ No, quedarme aquí",
+    confirmLabel: "⚙️ Sí, Ir a Configuración",
+    onConfirm: () => executeExitToTeacherConfig()
+  });
+}
+
+function requestLobbyBackToConfig() {
+  if (gameState.isRoomHostActive && gameState.joinedStudents && gameState.joinedStudents.length > 0) {
+    openConfirmExitModal({
+      icon: "⚠️",
+      title: "¿CERRAR SALA DE ESPERA?",
+      message: `Hay ${gameState.joinedStudents.length} estudiante(s) conectado(s) en la sala "${gameState.roomCode}". Si vuelves a la configuración, se cerrará la sala actual y deberán unirse nuevamente cuando la abras.`,
+      cancelLabel: "◀ Seguir en el Lobby",
+      confirmLabel: "⚙️ Sí, Cambiar Configuración",
+      onConfirm: () => executeExitToTeacherConfig()
+    });
+    return;
+  }
+  executeExitToTeacherConfig();
+}
+
+function openRoleSelectionModal() {
+  terminateActiveSessionIfNeeded();
   closeAllModals();
   document.getElementById("modalRoleSelection").classList.add("modal-overlay--active");
 }
 
 function closeAllModals() {
   pendingTeamValidationConfirmCallback = null;
+  pendingExitConfirmCallback = null;
   document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("modal-overlay--active"));
 }
 
 function selectInitialRole(role) {
   gameState.userRole = role;
+  applyGameModeUI();
   closeAllModals();
   if (role === 'teacher') {
     document.getElementById("modalTeacherConfig").classList.add("modal-overlay--active");
@@ -1488,21 +1643,22 @@ function applyGameModeUI() {
   const playerBox = document.getElementById("hudCardPlayerBox");
   const modeLabel = document.getElementById("currentModeLabel");
   const teamsBadge = document.getElementById("activeTeamsBadge");
+  const btnExitToCover = document.getElementById("btnExitToCover");
   const btnChangeMode = document.getElementById("btnChangeModeSetting");
-  const btnTeacherDashboardCreateMatch = document.getElementById("btnTeacherDashboardCreateMatch");
   const tabTeacherBtnLabel = document.getElementById("tabTeacherBtnLabel");
   const dashboardTitleText = document.getElementById("dashboardTitleText");
 
   teamsBadge.textContent = `${gameState.numTeams} Equipos Activos`;
 
   if (gameState.userRole === 'teacher') {
+    // El profesor tiene "Cambiar Modo / Crear Partida" en la barra de modo; ocultamos "Salir a Portada" de la cabecera para evitar redundancia
+    if (btnExitToCover) btnExitToCover.style.display = "none";
     if (btnChangeMode) btnChangeMode.style.display = "inline-flex";
-    if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "inline-flex";
     if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Dashboard Profesor";
     if (dashboardTitleText) dashboardTitleText.textContent = "📺 PANEL DOCENTE & ANÁLISIS DE DESEMPEÑO";
   } else {
+    if (btnExitToCover) btnExitToCover.style.display = "inline-flex";
     if (btnChangeMode) btnChangeMode.style.display = "none";
-    if (btnTeacherDashboardCreateMatch) btnTeacherDashboardCreateMatch.style.display = "none";
     if (tabTeacherBtnLabel) tabTeacherBtnLabel.textContent = "📊 Tablero General";
     if (dashboardTitleText) dashboardTitleText.textContent = "📊 TABLERO GENERAL DE CLASE";
   }
@@ -1520,6 +1676,7 @@ function applyGameModeUI() {
   }
 
   updatePostGameAndTeacherButtons();
+  updateDashboardStatusIndicator();
 }
 
 function updatePostGameAndTeacherButtons() {
@@ -1532,14 +1689,8 @@ function updatePostGameAndTeacherButtons() {
   const btnSkipBar = document.getElementById("btnTeacherSkipTurnBar");
   if (btnSkipBar) btnSkipBar.style.display = canTeacherControlMatch ? "inline-flex" : "none";
 
-  const btnSkipDash = document.getElementById("btnTeacherDashboardSkipTurn");
-  if (btnSkipDash) btnSkipDash.style.display = canTeacherControlMatch ? "inline-flex" : "none";
-
   const btnEndBar = document.getElementById("btnTeacherEndMatchBar");
   if (btnEndBar) btnEndBar.style.display = canTeacherControlMatch ? "inline-flex" : "none";
-
-  const btnEndDash = document.getElementById("btnTeacherDashboardEndMatch");
-  if (btnEndDash) btnEndDash.style.display = canTeacherControlMatch ? "inline-flex" : "none";
 
   const showReopenResults = Boolean(gameState.isGameStarted && gameState.isGameOver);
   const btnReopenBar = document.getElementById("btnReopenResultsBar");
@@ -1587,8 +1738,9 @@ function openCardDetailModal(cardId) {
   document.getElementById("cardDetailDesc").textContent = eventObj.desc;
   
   const imgEl = document.getElementById("cardDetailImage");
+  imgEl.alt = eventObj.title;
   imgEl.src = eventObj.image;
-  imgEl.onerror = () => { imgEl.src = 'https://via.placeholder.com/350x200?text=MuseumOfPlay'; };
+  imgEl.onerror = () => { imgEl.src = 'https://via.placeholder.com/384x497?text=MuseumOfPlay'; };
 
   document.getElementById("modalCardDetail").classList.add("modal-overlay--active");
 }
@@ -2375,6 +2527,7 @@ function teacherRematchSameRoom() {
 
 function showGameOverModal(winnerTeamIndex, isTie = false, tiedTeamIndices = [], playCelebration = true) {
   closeConfirmEndMatchModal();
+  closeConfirmExitModal();
   closeCardDetailModal();
   closeViewTeamsModal();
 
@@ -2537,7 +2690,31 @@ function addChatMessage(sender, text, shouldBroadcast = true) {
 /* ==========================================================================
    📊 DASHBOARD CON MÉTRICAS Y KPIS DINÁMICOS
    ========================================================================== */
+function updateDashboardStatusIndicator() {
+  const indicator = document.getElementById("dashboardStatusIndicator");
+  const dot = document.getElementById("dashboardStatusDot");
+  const text = document.getElementById("dashboardStatusText");
+  if (!indicator || !text) return;
+
+  if (gameState.isGameStarted && !gameState.isGameOver) {
+    indicator.className = "live-indicator live-indicator--active";
+    if (dot) dot.style.display = "inline-block";
+    text.textContent = gameState.gameMode === 'online'
+      ? "Partida en curso • Sincronizado en tiempo real"
+      : `Partida en curso • Ronda ${gameState.totalRoundsCompleted}`;
+  } else if (gameState.isGameStarted && gameState.isGameOver) {
+    indicator.className = "live-indicator live-indicator--finished";
+    if (dot) dot.style.display = "none";
+    text.textContent = "🏁 Partida finalizada • Resultados finales";
+  } else {
+    indicator.className = "live-indicator live-indicator--idle";
+    if (dot) dot.style.display = "none";
+    text.textContent = "⏳ Esperando inicio de partida";
+  }
+}
+
 function renderTeacherDashboard() {
+  updateDashboardStatusIndicator();
   document.getElementById("kpiActiveStudents").textContent = `${gameState.numTeams} Equipos`;
   const kpiCardsPerTeamMeta = document.getElementById("kpiCardsPerTeamMeta");
   if (kpiCardsPerTeamMeta) {
@@ -2658,8 +2835,7 @@ async function sendWebhookTelemetry() {
 }
 
 function restartGame() {
-  document.getElementById("modalDiagnostic").classList.remove("modal-overlay--active");
-  openRoleSelectionModal();
+  requestExitToCover();
 }
 
 function closeDiagnosticAndGoDashboard() {

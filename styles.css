@@ -1280,3 +1280,163 @@ body {
   border: 1px solid rgba(255, 234, 0, 0.45);
   color: var(--color-neon-yellow);
 }
+
+/* ==========================================================================
+   18. DYNAMIC DASHBOARD STATUS & 2-COLUMN HISTORICAL CARD DETAIL (v12.4)
+   ========================================================================== */
+.live-indicator--active {
+  color: var(--color-neon-green);
+  background: rgba(0, 255, 102, 0.08);
+  border: 1px solid rgba(0, 255, 102, 0.32);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.live-indicator--finished {
+  color: var(--color-neon-cyan);
+  background: rgba(0, 243, 255, 0.08);
+  border: 1px solid rgba(0, 243, 255, 0.35);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.live-indicator--idle {
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+/* 2-Column Card Historical Detail Modal */
+.card-detail-modal {
+  max-width: 670px;
+  border-color: var(--color-neon-cyan);
+  box-shadow: var(--shadow-cyan-glow);
+  position: relative;
+  padding: 1.6rem;
+}
+
+.card-detail__close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.9rem;
+  z-index: 5;
+}
+
+.card-detail-layout {
+  display: grid;
+  grid-template-columns: 225px 1fr;
+  gap: 1.35rem;
+  align-items: center;
+}
+
+.card-detail__media {
+  background: radial-gradient(circle at center, rgba(0, 243, 255, 0.1), var(--color-bg-dark));
+  border: 1px solid rgba(0, 243, 255, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 255px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.7);
+}
+
+.card-detail__image {
+  width: 100%;
+  height: auto;
+  max-height: 310px;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+}
+
+.card-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.card-detail__year-badge {
+  display: inline-block;
+  font-family: var(--font-heading);
+  color: var(--color-neon-cyan);
+  background: rgba(0, 243, 255, 0.1);
+  border: 1px solid rgba(0, 243, 255, 0.4);
+  padding: 0.18rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+}
+
+.card-detail__title {
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin-top: 0.45rem;
+  padding-right: 2.2rem;
+}
+
+.card-detail__desc-box {
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-neon-cyan);
+}
+
+.card-detail__desc {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--color-text-main);
+}
+
+.card-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.15rem;
+}
+
+.card-detail__ok-btn {
+  width: auto;
+  padding: 0.55rem 1.5rem;
+}
+
+@media (max-width: 620px) {
+  .card-detail-modal {
+    padding: 1.25rem;
+  }
+
+  .card-detail-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card-detail__media {
+    min-height: 0;
+    margin-top: 1.35rem;
+    padding: 0.5rem;
+  }
+
+  .card-detail__image {
+    width: auto;
+    max-width: 100%;
+    max-height: 235px;
+  }
+
+  .card-detail__title {
+    padding-right: 0;
+    font-size: 1.15rem;
+  }
+
+  .card-detail__ok-btn {
+    width: 100%;
+  }
+}

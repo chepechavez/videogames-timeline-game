@@ -2,7 +2,7 @@
 
 > **Documento de Referencia Viva (Single Source of Truth)**  
 > Este documento se actualiza en **cada actualización del repositorio** para mantener sincronizado el contexto entre los dos equipos de trabajo.  
-> **Última actualización:** 30 de octubre de 2026 (Versión de caché `v=12.3`)  
+> **Última actualización:** 2 de noviembre de 2026 (Versión de caché `v=12.4`)  
 > **Rama principal:** `main` | **Repositorio:** `https://github.com/chepechavez/videogames-timeline-game.git`  
 > **Despliegue activo:** GitHub Pages (`https://chepechavez.github.io/videogames-timeline-game/`)
 
@@ -33,9 +33,9 @@
 
 ```text
 videogames-timeline-game/
-├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, validación equipos vacíos, cierre, resultados), HUD y KPIs (v=12.3)
-├── app.js                   # Motor Timeline, prevención/reducción de equipos vacíos, salto de turno docente, sincronización Supabase y audio (v=12.3)
-├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive, controles docentes y clasificación final (v=12.3)
+├── index.html               # Estructura DOM, modales (rol, lobby, espera + minitutorial, validación equipos vacíos, confirmación salida, detalle 2 columnas, resultados), HUD y KPIs (v=12.4)
+├── app.js                   # Motor Timeline, confirmación salida sin retorno, controles docentes unificados, estado dinámico del tablero, sincronización Supabase y audio (v=12.4)
+├── styles.css               # Sistema de diseño BEM, variables neón, layout responsive, modal histórico 2 columnas sin recorte y clasificación final (v=12.4)
 ├── Videogames - Timeline.md # Catálogo fuente de los 74 eventos con imágenes oficiales
 └── PROJECT_STATE.md         # (Este archivo) Estado actual del proyecto, historial y backlog
 ```
@@ -77,11 +77,13 @@ videogames-timeline-game/
   - **Finalización Manual de Partida con Confirmación (Feature v12.2):** El profesor dispone del botón `🛑 Finalizar Partida` tanto en el modo **Multijugador Online** como en el modo **Proyector / Pizarra** (en la barra superior de modo y en el Dashboard Docente), protegido por un diálogo de confirmación (`#modalConfirmEndMatch`).
   - **Clasificación Final y Permanencia Inteligente en Sala (Feature v12.2):**
     - Al finalizar (por victoria natural o por cierre del docente), todos los dispositivos reciben en tiempo real el modal de resultados con tabla de clasificación por equipos (ordenada por *menos cartas restantes → mayor efectividad % → más aciertos*, determinando ganador o empate oficial), botón `🏆 Ver Resultados` para reabrirlo y exploración limpia de la línea de tiempo armada (sin ranuras `[ + ]`).
-    - **Flujo post-partida híbrido:** Por defecto, los estudiantes **permanecen conectados en la misma sala** (`🟢 Sigues conectado en la sala...`), lo que permite al docente lanzar instantáneamente `🔄 NUEVA PARTIDA (MISMA SALA Y EQUIPOS)` sin que nadie vuelva a digitar código ni nombre; a la vez, tanto alumnos como docente cuentan con `🏠 Salir a Portada` (notificando `student_left` si un alumno abandona la sala).
+  - **Flujo post-partida híbrido y confirmación de salida sin retorno (`#modalConfirmExit`, Feature v12.4):** Por defecto, los estudiantes **permanecen conectados en la misma sala**, lo que permite al docente lanzar instantáneamente `🔄 NUEVA PARTIDA (MISMA SALA Y EQUIPOS)`. Cualquier acción que cierre definitivamente la sesión o sala actual (`🏠 Salir a Portada` en resultados o cabecera estudiantil, y `🔄 Cambiar Modo / Crear Partida` del docente) solicita confirmación explícita advirtiendo que no se podrá regresar a la línea de tiempo ni a los resultados actuales (manteniendo abierto el cuadro de resultados si se cancela).
+  - **Unificación de controles docentes y estado dinámico del tablero (UX v12.4):** Se eliminaron los botones duplicados de la barra del Panel Docente y se ocultó `🏠 Salir a Portada` en la cabecera cuando el rol activo es Profesor, dejando un único punto de control en la barra superior de modo (`🔄 Cambiar Modo / Crear Partida`, que lleva directo a Configuración Docente, desde donde `🏠 Portada / Rol` permite cambiar de rol). Además, el texto fijo `"EN VIVO - Actualizando..."` se reemplazó por un indicador dinámico según el estado real (`Partida en curso • Sincronizado en tiempo real`, `Partida en curso • Ronda X`, `🏁 Partida finalizada • Resultados finales` o `⏳ Esperando inicio de partida`).
+  - **Visualización completa en 2 columnas del detalle histórico (`#modalCardDetail`, Fix & UX v12.4):** El panel de información ampliada (`ℹ️`) muestra las ilustraciones verticales de *The Strong National Museum of Play* (`384×497 px`) completas sin recorte (`object-fit: contain`) en un diseño de 2 columnas en PC/tablet (imagen a la izquierda y año/título/historia a la derecha; apilado automáticamente en móvil).
 
 #### C. Audio, Efectos Visuales y Despliegue:
 - [x] Sintetizador retro con `Web Audio API`, partículas de confetti en canvas, popups de racha y overlay CRT.
-- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.3`.
+- [x] Publicado y operativo en GitHub Pages con cache-busting `v=12.4`.
 
 ---
 
@@ -123,7 +125,8 @@ videogames-timeline-game/
 
 | Commit / Versión | Descripción Resumida |
 | :--- | :--- |
-| `v12.3` *(actual)* | Corrige espera en equipos/salas vacías: exige mínimo 2 estudiantes, añade confirmación docente para esperar o reducir automáticamente equipos vacíos al iniciar (4→3, 4→2, 3→2 en online, revancha y proyector con lista), omite en 0s equipos vacíos a mitad de partida y añade botón docente `⏭️ Saltar Turno` |
+| `v12.4` *(actual)* | Añade confirmación de salida sin retorno (`#modalConfirmExit`), elimina botones duplicados del docente llevando `🔄 Cambiar Modo / Crear Partida` directo a Configuración Docente, reemplaza `"EN VIVO - Actualizando..."` por estado dinámico real y rediseña `#modalCardDetail` a 2 columnas con imagen vertical completa sin recorte |
+| `95c39a9` (`v12.3`) | Corrige espera en equipos/salas vacías: exige mínimo 2 estudiantes, añade confirmación docente para esperar o reducir automáticamente equipos vacíos al iniciar (4→3, 4→2, 3→2 en online, revancha y proyector con lista), omite en 0s equipos vacíos a mitad de partida y añade botón docente `⏭️ Saltar Turno` |
 | `c31bbcc` (`v12.2`) | Añade botón docente `🛑 Finalizar Partida` (online y pizarra) con modal de confirmación, tabla de clasificación final sincronizada y permanencia por defecto en la misma sala con opción de revancha inmediata o salir a portada |
 | `5d43cb7` (`v12.1`) | Ajusta regla de fallo para conservar la tarjeta en la mano del equipo (permitiendo reintentar sin revelar su año) y actualiza el mini-tutorial |
 | `7115b0c` (`v12.0`) | Fix turnos consecutivos (sincronización completa de ronda, mazo y representantes por equipo), bloqueo de entrada a salas no creadas por el profesor y mini-tutorial con regla de 60s |

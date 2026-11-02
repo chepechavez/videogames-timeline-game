@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.3 -->
-  <link rel="stylesheet" href="styles.css?v=12.3">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.4 -->
+  <link rel="stylesheet" href="styles.css?v=12.4">
 </head>
 <body>
 
@@ -42,8 +42,8 @@
         👤 Tú: Estudiante
       </div>
 
-      <!-- BOTÓN PARA SALIR A LA PORTADA / ELEGIR ROL -->
-      <button class="btn-secondary" id="btnExitToCover" style="padding: 0.5rem 0.9rem; border-color: rgba(255,255,255,0.25); color: var(--color-text-main);" onclick="openRoleSelectionModal()" title="Salir a la portada inicial para cambiar de rol">
+      <!-- BOTÓN PARA SALIR A LA PORTADA (VISIBLE PARA ESTUDIANTES; EL PROFESOR USA "CAMBIAR MODO / CREAR PARTIDA") -->
+      <button class="btn-secondary" id="btnExitToCover" style="padding: 0.5rem 0.9rem; border-color: rgba(255,255,255,0.25); color: var(--color-text-main); display: none;" onclick="requestExitToCover()" title="Salir a la portada inicial">
         🏠 Salir a Portada
       </button>
 
@@ -89,8 +89,8 @@
         <button class="btn-danger-outline" id="btnTeacherEndMatchBar" style="display: none;" onclick="openConfirmEndMatchModal()">
           🛑 Finalizar Partida
         </button>
-        <!-- BOTÓN DE CAMBIAR MODO: EXCLUSIVO PARA EL PROFESOR -->
-        <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="openRoleSelectionModal()">
+        <!-- BOTÓN DE CAMBIAR MODO / CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR -->
+        <button class="btn-secondary" id="btnChangeModeSetting" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; display: none;" onclick="requestTeacherChangeMode()" title="Cerrar la sesión actual e ir a Configuración de Partida">
           🔄 Cambiar Modo / Crear Partida
         </button>
       </div>
@@ -213,25 +213,10 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
-            <div class="live-indicator">
-              <span class="live-indicator__dot"></span>
-              <span>EN VIVO - Actualizando...</span>
+            <div class="live-indicator" id="dashboardStatusIndicator">
+              <span class="live-indicator__dot" id="dashboardStatusDot"></span>
+              <span id="dashboardStatusText">⏳ Esperando inicio de partida</span>
             </div>
-
-            <!-- BOTÓN DE SALTAR TURNO DESDE EL PANEL DOCENTE -->
-            <button class="btn-warning-outline" id="btnTeacherDashboardSkipTurn" style="display: none; padding: 0.5rem 1rem;" onclick="teacherSkipCurrentTurn()" title="Saltar el turno actual si el estudiante o equipo no está disponible">
-              ⏭️ Saltar Turno
-            </button>
-
-            <!-- BOTÓN DE FINALIZAR PARTIDA DESDE EL PANEL DOCENTE -->
-            <button class="btn-danger-outline" id="btnTeacherDashboardEndMatch" style="display: none; padding: 0.5rem 1rem;" onclick="openConfirmEndMatchModal()">
-              🛑 Finalizar Partida
-            </button>
-
-            <!-- BOTÓN DE CREAR PARTIDA: EXCLUSIVO PARA EL PROFESOR -->
-            <button class="btn-primary" id="btnTeacherDashboardCreateMatch" style="width: auto; padding: 0.5rem 1.2rem;" onclick="openRoleSelectionModal()">
-              ⚙️ Crear Nueva Partida / Cambiar Modo
-            </button>
           </div>
         </div>
 
@@ -413,7 +398,7 @@
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-          <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">◀ Volver</button>
+          <button type="button" class="btn-secondary" onclick="openRoleSelectionModal()">🏠 Portada / Rol</button>
           <button type="submit" class="btn-primary" id="btnTeacherConfigSubmit">🚀 ¡ABRIR SALA DE ESPERA!</button>
         </div>
       </form>
@@ -442,7 +427,7 @@
       </div>
 
       <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-        <button class="btn-secondary" onclick="openRoleSelectionModal()">◀ Cambiar Configuración</button>
+        <button class="btn-secondary" onclick="requestLobbyBackToConfig()">◀ Cambiar Configuración</button>
         <button class="btn-primary" style="font-size: 1.1rem; padding: 0.9rem;" onclick="teacherStartMatchForAllStudents()">
           🚀 ¡INICIAR PARTIDA PARA TODOS LOS JUGADORES!
         </button>
@@ -561,29 +546,32 @@
     </div>
   </div>
 
-  <!-- MODAL 5: EXTENDED CARD HISTORICAL DETAIL -->
+  <!-- MODAL 5: EXTENDED CARD HISTORICAL DETAIL (2-COLUMN FULL PORTRAIT LAYOUT) -->
   <div class="modal-overlay" id="modalCardDetail">
-    <div class="modal" style="max-width: 580px; border-color: var(--color-neon-cyan);">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-          <span style="font-family: var(--font-heading); color: var(--color-neon-cyan); font-size: 0.9rem;" id="cardDetailYear">AÑO: 1972</span>
-          <h2 class="modal__title" id="cardDetailTitle" style="font-size: 1.3rem; margin-top: 0.2rem;">Nacimiento de Pong (Atari)</h2>
+    <div class="modal card-detail-modal">
+      <button type="button" class="btn-secondary card-detail__close-btn" onclick="closeCardDetailModal()" aria-label="Cerrar detalle histórico">✕</button>
+
+      <div class="card-detail-layout">
+        <div class="card-detail__media">
+          <img id="cardDetailImage" class="card-detail__image" src="" alt="">
         </div>
-        <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.9rem;" onclick="closeCardDetailModal()">✕</button>
-      </div>
 
-      <div style="margin: 1rem 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid rgba(0,243,255,0.3); text-align: center; max-height: 250px;">
-        <img id="cardDetailImage" src="" alt="" style="width: 100%; height: 100%; object-fit: cover;">
-      </div>
+        <div class="card-detail__body">
+          <div>
+            <span class="card-detail__year-badge" id="cardDetailYear">AÑO: 1972</span>
+            <h2 class="modal__title card-detail__title" id="cardDetailTitle">Nacimiento de Pong (Atari)</h2>
+          </div>
 
-      <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius-sm); border-left: 3px solid var(--color-neon-cyan);">
-        <p style="font-size: 0.95rem; line-height: 1.5; color: var(--color-text-main);" id="cardDetailDesc">
-          Descripción detallada del evento histórico...
-        </p>
-      </div>
+          <div class="card-detail__desc-box">
+            <p class="card-detail__desc" id="cardDetailDesc">
+              Descripción detallada del evento histórico...
+            </p>
+          </div>
 
-      <div style="margin-top: 1rem; text-align: right;">
-        <button class="btn-primary" style="width: auto; padding: 0.5rem 1.5rem;" onclick="closeCardDetailModal()">ENTENDIDO 👍</button>
+          <div class="card-detail__actions">
+            <button type="button" class="btn-primary card-detail__ok-btn" onclick="closeCardDetailModal()">ENTENDIDO 👍</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -690,10 +678,29 @@
     </div>
   </div>
 
+  <!-- MODAL 8: CONFIRMATION BEFORE IRREVERSIBLE EXIT TO COVER OR TEACHER RECONFIG -->
+  <div class="modal-overlay modal-overlay--top" id="modalConfirmExit">
+    <div class="modal" style="max-width: 510px; border-color: var(--color-neon-yellow); text-align: center;">
+      <div style="font-size: 2.4rem; margin-bottom: 0.1rem;" id="confirmExitIcon">⚠️</div>
+      <h2 class="modal__title" style="color: var(--color-neon-yellow);" id="confirmExitTitle">¿SALIR A LA PORTADA?</h2>
+      <p class="modal__subtitle" style="color: var(--color-text-main); line-height: 1.5;" id="confirmExitMessage">
+        Si sales ahora, abandonarás la sesión actual y ya no podrás regresar a explorar la línea de tiempo ni ver estos resultados.
+      </p>
+      <div style="display: flex; gap: 0.8rem; margin-top: 0.4rem; flex-wrap: wrap;">
+        <button type="button" class="btn-secondary" id="confirmExitCancelBtn" style="flex: 1; min-width: 170px; border-color: var(--color-neon-cyan); color: var(--color-neon-cyan);" onclick="closeConfirmExitModal()">
+          ◀ No, quedarme aquí
+        </button>
+        <button type="button" class="btn-primary" id="confirmExitProceedBtn" style="flex: 1; min-width: 185px;" onclick="confirmExitAction()">
+          🏠 Sí, Salir a Portada
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=12.3 -->
-  <script src="app.js?v=12.3"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=12.4 -->
+  <script src="app.js?v=12.4"></script>
 </body>
 </html>
