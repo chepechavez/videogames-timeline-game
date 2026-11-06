@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.4 -->
-  <link rel="stylesheet" href="styles.css?v=12.4">
+  <!-- CSS Design System (BEM Architecture) - Cache Buster v=12.5 -->
+  <link rel="stylesheet" href="styles.css?v=12.5">
 </head>
 <body>
 
@@ -168,7 +168,12 @@
           <!-- TEAM HAND CARDS -->
           <div class="team-hand">
             <div class="team-hand__title">
-              <span>🎴 CARTAS EN MANO DEL EQUIPO EN TURNO</span>
+              <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                <span>🎴 CARTAS EN MANO DEL EQUIPO EN TURNO</span>
+                <span style="font-size: 0.78rem; font-weight: normal; color: var(--color-text-muted);">
+                  Haz clic en <strong style="color: var(--color-neon-cyan);">ℹ️</strong> en tus cartas para leer más información del evento (sin revelar la fecha)
+                </span>
+              </div>
               <span style="font-size: 0.8rem; font-weight: normal; color: var(--color-text-muted);" id="handCountLabel">4 cartas restantes</span>
             </div>
 
@@ -502,7 +507,7 @@
         <ol class="mini-tutorial__steps">
           <li class="mini-tutorial__step">
             <span class="mini-tutorial__step-num">1</span>
-            <span><strong>Elige una tarjeta:</strong> En tu turno, toca una carta de la mano de tu equipo (su año está oculto ❓).</span>
+            <span><strong>Consulta y elige una tarjeta:</strong> En tu turno, toca <strong style="color: var(--color-neon-cyan);">ℹ️</strong> para leer de qué trata el evento (su año sigue oculto ❓) y selecciona la carta a jugar.</span>
           </li>
           <li class="mini-tutorial__step">
             <span class="mini-tutorial__step-num">2</span>
@@ -700,7 +705,7 @@
   <!-- SUPABASE REALTIME CLIENT LIBRARY FROM CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- JavaScript Core Engine - Cache Buster v=12.4 -->
-  <script src="app.js?v=12.4"></script>
+  <!-- JavaScript Core Engine - Cache Buster v=12.5 -->
+  <script src="app.js?v=12.5"></script>
 </body>
 </html>

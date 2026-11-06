@@ -1729,11 +1729,25 @@ function closeViewTeamsModal() {
   document.getElementById("modalViewTeams").classList.remove("modal-overlay--active");
 }
 
-function openCardDetailModal(cardId) {
+function openCardDetailModal(cardId, showYear = true) {
   const eventObj = HISTORICAL_EVENTS.find(c => c.id === cardId);
   if (!eventObj) return;
 
-  document.getElementById("cardDetailYear").textContent = `AÑO: ${eventObj.year}`;
+  // Solo revelar el año si la tarjeta ya está colocada en la línea de tiempo de la mesa
+  const isRevealedOnTable = gameState.tableCards.some(c => c.id === cardId);
+  const shouldRevealYear = Boolean(showYear) && isRevealedOnTable;
+
+  const yearBadgeEl = document.getElementById("cardDetailYear");
+  if (yearBadgeEl) {
+    if (shouldRevealYear) {
+      yearBadgeEl.textContent = `AÑO: ${eventObj.year}`;
+      yearBadgeEl.classList.remove("card-detail__year-badge--hidden");
+    } else {
+      yearBadgeEl.textContent = "❓ FECHA OCULTA";
+      yearBadgeEl.classList.add("card-detail__year-badge--hidden");
+    }
+  }
+
   document.getElementById("cardDetailTitle").textContent = eventObj.title;
   document.getElementById("cardDetailDesc").textContent = eventObj.desc;
   
@@ -2068,7 +2082,7 @@ function renderTimelineTable() {
       cardEl.className = "timeline-card";
 
       cardEl.innerHTML = `
-        <button class="timeline-card__info-btn" title="Ver historia del evento" onclick="event.stopPropagation(); openCardDetailModal(${card.id})">ℹ️</button>
+        <button type="button" class="timeline-card__info-btn" title="Ver historia del evento" aria-label="Ver historia del evento" onclick="event.stopPropagation(); openCardDetailModal(${card.id}, true)">ℹ️</button>
         <div class="timeline-card__year-badge">${card.year}</div>
         <div class="timeline-card__image-container">
           <img src="${card.image}" alt="${card.title}" class="timeline-card__image" onerror="this.src='https://via.placeholder.com/150x100?text=MuseumOfPlay'">
@@ -2101,6 +2115,7 @@ function renderTeamHand() {
     }
 
     cardEl.innerHTML = `
+      <button type="button" class="timeline-card__info-btn hand-card__info-btn" title="Ver información del evento (sin revelar la fecha)" aria-label="Ver información del evento (sin revelar la fecha)" onclick="event.stopPropagation(); openCardDetailModal(${card.id}, false)">ℹ️</button>
       <div class="hand-card__image-box">
         <img src="${card.image}" alt="${card.title}" class="hand-card__image" onerror="this.src='https://via.placeholder.com/150x100?text=MuseumOfPlay'">
       </div>

@@ -1378,6 +1378,21 @@ body {
   letter-spacing: 0.5px;
 }
 
+.hand-card__info-btn {
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: rgba(10, 11, 16, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
+.card-detail__year-badge--hidden {
+  color: var(--color-neon-yellow);
+  background: rgba(255, 234, 0, 0.1);
+  border: 1px dashed rgba(255, 234, 0, 0.55);
+}
+
 .card-detail__title {
   font-size: 1.25rem;
   line-height: 1.25;
